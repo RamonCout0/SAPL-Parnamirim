@@ -1,0 +1,25 @@
+{
+  "_doc": "Mapeamento dos campos do formulario do SAPL. Cada campo tem uma LISTA de seletores candidatos, tentados em ordem. Se o SAPL de voces usar outro id, rode 'python scripts\\02_preencher_sapl.py --inspecionar' para listar os campos reais da pagina e acrescente o seletor aqui.",
+
+  "base_url": "https://sapl.parnamirim.rn.leg.br",
+  "caminho_login": "/login/",
+  "caminho_formulario": "/materia/materialegislativa/create",
+
+  "campos": {
+    "tipo_materia": ["#id_tipo", "select[name='tipo']"],
+    "numero": ["#id_numero", "input[name='numero']"],
+    "ano": ["#id_ano", "select[name='ano']", "input[name='ano']"],
+    "regime_tramitacao": [
+      "#id_regime_tramitacao",
+      "select[name='regime_tramitacao']"
+    ],
+    "ementa": ["#id_ementa", "textarea[name='ementa']"],
+    "tipo_autor": ["#id_tipo_autor", "select[name='tipo_autor']"],
+    "autor": ["#id_autor", "select[name='autor']"]
+  },
+
+  "_nao_preencher": [
+    "data_apresentacao - voce preenche na mao",
+    "texto_original - voce anexa o PDF de output/pdfs/ na mao"
+  ]
+}

@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------
+# NUNCA versionar: sessao autenticada do SAPL
+# ---------------------------------------------------------------------------
+# O perfil do navegador guarda os cookies de login. Se subir para o GitHub,
+# qualquer pessoa com o repositorio entra no SAPL como voce.
+.perfil_navegador/
+
+
+# ---------------------------------------------------------------------------
+# Resultado do processamento
+# ---------------------------------------------------------------------------
+# Sao os documentos oficiais em si: PDFs separados, texto integral do OCR,
+# ementas, e PNG das paginas escaneadas (com assinaturas). Nao e codigo, e
+# conteudo - cada Camara gera o proprio a partir do seu PDF.
+output/
+
+
+# ---------------------------------------------------------------------------
+# PDFs de entrada
+# ---------------------------------------------------------------------------
+# O lote de indicacoes nao entra no repositorio. Passe o caminho por argumento.
+*.pdf
+
+
+# ---------------------------------------------------------------------------
+# Ambiente local (recriado por scripts\instalar.ps1)
+# ---------------------------------------------------------------------------
+# O .venv guarda caminhos absolutos da maquina onde foi criado: copiar entre
+# PCs nao funciona, tem de recriar.
+.venv/
+env/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+
+# ---------------------------------------------------------------------------
+# Editor e sistema operacional
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store

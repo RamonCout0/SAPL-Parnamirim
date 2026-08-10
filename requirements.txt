@@ -1,0 +1,8 @@
+pypdf==6.15.0
+pdfplumber==0.11.10
+pypdfium2==5.12.1
+Pillow==12.3.0
+rapidfuzz==3.14.5
+Unidecode==1.4.0
+requests==2.34.2
+playwright==1.62.0
