@@ -211,3 +211,6 @@ Python 3.12 em `.venv`, Ollama com `qwen2.5:3b-instruct`, Playwright + Chromium.
 ```bash
 .venv\Scripts\python -m pip install -r requirements.txt
 ```
+
+
+Créditos ao Rafael Veritas Por colaborar no projeto.
