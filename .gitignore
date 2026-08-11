@@ -18,8 +18,11 @@ output/
 # ---------------------------------------------------------------------------
 # PDFs de entrada
 # ---------------------------------------------------------------------------
-# O lote de indicacoes nao entra no repositorio. Passe o caminho por argumento.
+# Os lotes de indicacoes nao entram no repositorio - documentos oficiais de
+# cada Camara, nao codigo. Coloque os arquivos em input/ (mantido vazio aqui,
+# so com o .gitkeep) e rode scripts\01_extrair.py sem argumento.
 *.pdf
+!input/.gitkeep
 
 
 # ---------------------------------------------------------------------------

@@ -35,7 +35,20 @@ def _limpar(texto: str) -> str:
         if not linha:
             saida.append("")
             continue
-        if any(ruido.lower() in linha.lower() for ruido in RUIDO_LINHAS):
+        # BUG GRAVE ja corrigido: o filtro comparava substring em QUALQUER
+        # lugar da linha, entao uma linha de ementa que so MENCIONA
+        # "Parnamirim" - o nome da propria cidade, esperado em enderecos e
+        # bairros citados nos pedidos - era jogada fora inteira junto com o
+        # timbre. Isso cortou de verdade o final da ementa da indicacao
+        # 296/2023 (a frase sobre o bairro "Pirangi do Norte/Parnamirim/RN"
+        # sumiu). O guard de tamanho abaixo restringe o filtro a linhas
+        # CURTAS e proximas do tamanho do proprio timbre/rodape - uma frase
+        # de conteudo real, bem mais longa que a frase de ruido, nunca casa.
+        eh_ruido = any(
+            ruido.lower() in linha.lower() and len(linha) <= len(ruido) + 20
+            for ruido in RUIDO_LINHAS
+        )
+        if eh_ruido:
             continue
         # Linhas que sao so sujeira de OCR (rabiscos, assinatura digital):
         # menos de 40% de caracteres alfanumericos.

@@ -81,10 +81,13 @@ Confirmar "instalar as bibliotecas do requirements.txt"
 Write-Host "Bibliotecas instaladas."
 
 # --- 3. Navegador do Playwright -------------------------------------------
-# Necessario apenas para o passo 02 (preencher o SAPL). ~190 MB.
-Write-Host "`nBaixando o Chromium do Playwright (so o passo 02 usa)..."
-& $vpy -m playwright install chromium
-Confirmar "instalar o Chromium do Playwright"
+# Necessario apenas para o passo 02 (preencher o SAPL). Firefox, nao Chromium:
+# e a instancia que a tela de preenchimento usa (propria do Playwright, com
+# perfil salvo em .perfil_navegador/ - nao e o Firefox do dia a dia do
+# usuario). ~120 MB.
+Write-Host "`nBaixando o Firefox do Playwright (so o passo 02 usa)..."
+& $vpy -m playwright install firefox
+Confirmar "instalar o Firefox do Playwright"
 
 # --- 4. Ollama (OPCIONAL) -------------------------------------------------
 # Sem ele, use --sem-ollama: o conjunto de indicacoes prontas e identico.
@@ -124,6 +127,7 @@ Confirmar "compilar o codigo"
 Write-Host "  codigo compila ok"
 
 Write-Host "`nPronto. Para usar:" -ForegroundColor Green
-Write-Host '  .venv\Scripts\python scripts\00_diagnostico.py "CAMINHO\DO.pdf" 2023'
-Write-Host '  .venv\Scripts\python scripts\01_extrair.py    "CAMINHO\DO.pdf"'
-Write-Host '  .venv\Scripts\python scripts\02_preencher_sapl.py'
+Write-Host '  1. Coloque os PDFs em input\'
+Write-Host '  2. .venv\Scripts\python scripts\01_extrair.py'
+Write-Host '  3. .venv\Scripts\python scripts\03_revisar.py       (se houver pendencias)'
+Write-Host '  4. .venv\Scripts\python scripts\02_preencher_sapl.py'

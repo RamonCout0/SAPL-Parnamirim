@@ -23,7 +23,8 @@ dois casos). Internet só é necessária no passo 4, para acessar o SAPL.
 | Tipo de autor | fixo: **Parlamentar** (id 2) |
 | Autor | nome do papel → id do SAPL (alias + rapidfuzz + glossário) |
 | Regime de tramitação | fixo: **Ordinária** (id 1) |
-| Ementa | texto após INDICA / REITERA / RETIRA / VEM INDICAR, até "Justificativa" |
+| Tipo de apresentação | fixo: **Escrita** ("E") |
+| Ementa | texto após INDICA / REITERA / RETIRA / VEM INDICAR, até "Justificativa" — preenchida **EM CAIXA ALTA** |
 | **Data de apresentação** | **você** |
 | **Texto original (anexo)** | **você** — o PDF já sai pronto em `output/pdfs/` |
 
@@ -40,7 +41,7 @@ cd SAPL-Parnamirim
 powershell -ExecutionPolicy Bypass -File scripts\instalar.ps1
 ```
 
-O instalador cria o `.venv`, instala as bibliotecas, baixa o Chromium do
+O instalador cria o `.venv`, instala as bibliotecas, baixa o Firefox do
 Playwright e, se o Ollama estiver presente, o modelo. Se faltar Python, ele
 instala o 3.12 via `winget`. Ele aborta com mensagem clara em qualquer falha —
 não continua com o ambiente meio pronto.
@@ -57,26 +58,39 @@ pessoa entra com o próprio usuário na primeira execução do passo 4.
 
 Em Linux ou macOS o código funciona igual (nada de específico do Windows), mas
 o `instalar.ps1` é PowerShell; lá basta:
-`python -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/playwright install chromium`.
+`python -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/playwright install firefox`.
 
 ---
 
 ## Uso
 
-### 1. Conferir o fatiamento
+### 1. Colocar os PDFs em `input/`
+
+Copie os lotes de indicações para dentro de `input/`. Pode colocar mais de um
+de uma vez. Se o nome do arquivo terminar em `@AAAA.pdf` (o padrão que você já
+usa, tipo `..._300_A_201@2023.pdf`), o ano daquele lote é lido do próprio
+nome; senão vale o `--ano` do comando (2023 por padrão).
+
+### 2. Conferir o fatiamento (opcional, mas recomendado no primeiro lote)
 
 ```bash
-.venv\Scripts\python scripts\00_diagnostico.py "%USERPROFILE%\Downloads\SEU_ARQUIVO.pdf" 2023
+.venv\Scripts\python scripts\00_diagnostico.py "input\SEU_ARQUIVO.pdf" 2023
 ```
 
 Mostra quantas indicações achou, a faixa de páginas de cada uma e o que ficou
-duvidoso. Rode sempre que trocar o PDF de entrada.
+duvidoso — antes de gerar qualquer coisa.
 
-### 2. Extrair
+### 3. Extrair
 
 ```bash
-.venv\Scripts\python scripts\01_extrair.py "%USERPROFILE%\Downloads\SEU_ARQUIVO.pdf"
+.venv\Scripts\python scripts\01_extrair.py
 ```
+
+Sem argumento nenhum: processa **tudo** que estiver em `input/`. **A cada
+execução, `output/` é reconstruído do zero** a partir do que estiver em
+`input/` naquele momento — se você tirar um PDF de lá, as indicações dele
+somem do output na rodada seguinte. As correções que você já fez no glossário
+não se perdem: isso é preservado entre execuções.
 
 Gera em `output/`:
 
@@ -88,23 +102,46 @@ markdown/NNN-2023.md     leitura humana de cada indicação
 revisao_manual/          o que não deu para ler com segurança
 ```
 
-Opções: `--sem-ollama` (rápido, só regex) · `--sem-pdfs` · `--ano 2024`
+Opções: `--sem-ollama` (rápido, só regex) · `--sem-pdfs` · `--ano 2024` ·
+passar o caminho de um único PDF em vez de usar `input/` (para testar um
+arquivo isolado, sem mexer nos outros)
 
-### 3. Resolver a revisão manual
+### 4. Resolver a revisão manual
 
 As indicações que não passaram no critério de confiança **não vão para o SAPL**.
-Elas aparecem em `output/revisao_manual/`:
+Para resolver, abra um formulário no navegador — não precisa editar planilha
+nem CSV:
 
-- `imagens/NNN-2023_pgNNN.png` — a página escaneada, legível na tela
-- `glossario.csv` — abra no Excel e preencha só as colunas em MAIÚSCULO:
-  - `EMENTA_MANUAL` — transcreva olhando o PNG
-  - `AUTOR_ID_MANUAL` — o id, consultando `IDS_DE_AUTOR.md`
-- as outras colunas são informativas: o que a máquina leu, os candidatos mais
-  próximos e o palpite do modelo
+```bash
+.venv\Scripts\python scripts\03_revisar.py
+```
 
-Depois **rode o passo 2 de novo**. O que você escreveu vence qualquer dedução
+Abre sozinho no navegador. Para cada indicação pendente, mostra a página
+escaneada ao lado de uma caixa de texto (já vem com o que a máquina leu, só
+corrija o que faltar) e uma lista com o nome dos vereadores. Clique em
+**Salvar e continuar** e ele já passa para a próxima. Quando acabar, ele avisa
+na tela.
+
+Depois **rode o passo 3 de novo**. O que você escreveu vence qualquer dedução
 da máquina, e cada nome civil que você confirmar entra em
 `config/aliases_aprendidos.json` — na próxima vez ele resolve sozinho.
+
+<details>
+<summary>Prefere editar direto? (avançado)</summary>
+
+Os mesmos dados ficam em `output/revisao_manual/`:
+
+- `imagens/NNN-2023_pgNNN.png` — a página escaneada
+- `glossario.csv` — abra num programa de planilha (Excel/LibreOffice), nunca
+  num editor de código: as colunas `EMENTA_MANUAL` e `AUTOR_ID_MANUAL` (as
+  duas que você preenche) vêm logo no início da linha; consulte
+  `IDS_DE_AUTOR.md` para os ids
+- `REVISAO.md` — o mesmo conteúdo, só para leitura, com as imagens já
+  incorporadas (abra o preview de Markdown do editor)
+
+`scripts/03_revisar.py` edita exatamente esse `glossario.csv` — os dois
+caminhos terminam no mesmo lugar.
+</details>
 
 Esse arquivo **é versionado**: dando commit nele, o mapeamento
 "nome civil → nome político" passa a valer para todo mundo que usa o
@@ -112,14 +149,18 @@ repositório. O glossário só precisa ser descoberto uma vez, por uma pessoa.
 Um único nome pode valer muitas indicações — *Hamilton Rademacker Pereira →
 Binho de Ambrósio* resolveu 8 de uma vez neste lote.
 
-### 4. Preencher o SAPL
+### 5. Preencher o SAPL
 
 ```bash
 .venv\Scripts\python scripts\02_preencher_sapl.py
 ```
 
-Na primeira vez a janela abre no login do SAPL e espera você entrar; a sessão
-fica salva em `.perfil_navegador/`. O script nunca digita senha.
+Abre uma janela de **Firefox** — uma instância própria do Playwright, não o
+Firefox do seu dia a dia (não tem como conectar na janela que você já tem
+aberta: isso só funciona com navegadores baseados em Chrome). Na primeira vez
+a janela abre no login do SAPL e espera você entrar; a sessão fica salva em
+`.perfil_navegador/`, então nas próximas já abre logado. O script nunca digita
+senha.
 
 Se algum campo não for encontrado, descubra os ids reais da página:
 
@@ -201,12 +242,14 @@ scripts/
   00_diagnostico.py     confere o fatiamento
   01_extrair.py         pipeline completo
   02_preencher_sapl.py  abre o formulário preenchido
+  03_revisar.py         formulário no navegador para a revisão manual
+  instalar.ps1          prepara o ambiente numa máquina nova
   ver_pagina.py         depuração: texto cru vs limpo de uma página
 ```
 
 ## Ambiente
 
-Python 3.12 em `.venv`, Ollama com `qwen2.5:3b-instruct`, Playwright + Chromium.
+Python 3.12 em `.venv`, Ollama com `qwen2.5:3b-instruct`, Playwright + Firefox.
 
 ```bash
 .venv\Scripts\python -m pip install -r requirements.txt

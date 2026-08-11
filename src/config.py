@@ -7,6 +7,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 CONFIG_DIR = RAIZ / "config"
 OUTPUT_DIR = RAIZ / "output"
+INPUT_DIR = RAIZ / "input"
 
 MARKDOWN_DIR = OUTPUT_DIR / "markdown"
 PDFS_DIR = OUTPUT_DIR / "pdfs"
@@ -51,5 +52,5 @@ def carregar_ids() -> dict:
 
 
 def garantir_dirs() -> None:
-    for d in (OUTPUT_DIR, MARKDOWN_DIR, PDFS_DIR):
+    for d in (INPUT_DIR, OUTPUT_DIR, MARKDOWN_DIR, PDFS_DIR):
         d.mkdir(parents=True, exist_ok=True)

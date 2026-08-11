@@ -3,7 +3,7 @@
 
   "base_url": "https://sapl.parnamirim.rn.leg.br",
   "caminho_login": "/login/",
-  "caminho_formulario": "/materia/materialegislativa/create",
+  "caminho_formulario": "/materia/create",
 
   "campos": {
     "tipo_materia": ["#id_tipo", "select[name='tipo']"],
@@ -15,7 +15,13 @@
     ],
     "ementa": ["#id_ementa", "textarea[name='ementa']"],
     "tipo_autor": ["#id_tipo_autor", "select[name='tipo_autor']"],
-    "autor": ["#id_autor", "select[name='autor']"]
+    "autor": ["#id_autor", "select[name='autor']"],
+    "tipo_apresentacao": [
+      "#id_apresentacao",
+      "select[name='apresentacao']",
+      "#id_tipo_apresentacao",
+      "select[name='tipo_apresentacao']"
+    ]
   },
 
   "_nao_preencher": [

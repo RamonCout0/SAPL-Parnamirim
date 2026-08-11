@@ -9,9 +9,12 @@ confere a tela e clica em salvar.
     python scripts\\02_preencher_sapl.py --numero 300      so a 300
     python scripts\\02_preencher_sapl.py --de 300 --ate 290
 
-Primeira execucao: a janela abre na tela de login do SAPL e espera VOCE entrar.
-A sessao fica salva no perfil do projeto, entao nas proximas vezes ja abre
-logado. O script nunca digita senha - quem faz o login e voce.
+O navegador e Firefox (instancia propria do Playwright, nao a janela que voce
+ja tem aberta - Playwright so conecta em janelas ja abertas de navegadores
+baseados em Chrome). Primeira execucao: a janela abre na tela de login do SAPL
+e espera VOCE entrar. A sessao fica salva no perfil do projeto
+(.perfil_navegador\\), entao nas proximas vezes ja abre logado. O script nunca
+digita senha - quem faz o login e voce.
 """
 from __future__ import annotations
 
@@ -123,14 +126,26 @@ def preencher(pagina, form: dict, ind: dict) -> list[str]:
     campos = form["campos"]
     falhas = []
 
+    # "numero" fica por ULTIMO de proposito. O formulario do SAPL sugere
+    # automaticamente o "proximo numero disponivel" assim que tipo_materia e
+    # ano sao escolhidos - via requisicao assincrona que so volta depois do
+    # nosso fill. Se numero for preenchido antes desses dois, a sugestao do
+    # SAPL chega em seguida e sobrescreve o que preenchemos (foi o que
+    # aconteceu: o campo sempre ficava com o ultimo numero da sequencia geral,
+    # tipo 1946, em vez do numero da indicacao).
     plano = [
         ("tipo_materia", "select", ind["tipo_materia_id"]),
         ("ano", "select", ind["ano"]),
-        ("numero", "texto", ind["numero"]),
         ("regime_tramitacao", "select", ind["regime_id"]),
-        ("ementa", "texto", ind["ementa"]),
+        ("tipo_apresentacao", "select", ind["tipo_apresentacao"]),
+        # A ementa vai em CAIXA ALTA para o SAPL - convencao do orgao. O
+        # texto guardado em indicacoes.json/csv fica como foi extraido (para
+        # servir de comparacao com o PDF original); a maiusculizacao e so
+        # nesta hora, ao escrever na tela.
+        ("ementa", "texto", ind["ementa"].upper()),
         ("tipo_autor", "select", ind["tipo_autor_id"]),
         ("autor", "select", ind["autor_id"]),
+        ("numero", "texto", ind["numero"]),
     ]
 
     for nome, especie, valor in plano:
@@ -146,6 +161,25 @@ def preencher(pagina, form: dict, ind: dict) -> list[str]:
             ok = definir_texto(alvo, valor)
         if not ok:
             falhas.append(f"{nome}: nao aceitou o valor {valor!r}")
+
+        # Depois de tipo_materia/ano, a sugestao automatica do SAPL pode
+        # demorar um instante para chegar e reescrever o campo numero. Espera
+        # aqui em vez de so no final, para o numero (preenchido por ultimo)
+        # nao ser pego por uma sugestao ainda em transito.
+        if nome in ("tipo_materia", "ano"):
+            pagina.wait_for_timeout(1200)
+
+    # Confere que o numero realmente ficou com o valor certo depois de tudo -
+    # se algum outro evento da pagina ainda sobrescrever, isso aparece aqui em
+    # vez de passar batido para a tela que o usuario confere visualmente.
+    alvo_numero = achar(pagina, campos.get("numero", []))
+    if alvo_numero is not None:
+        atual = alvo_numero.input_value()
+        if str(atual).strip() != str(ind["numero"]):
+            falhas.append(
+                f"numero: mostrando {atual!r} na tela, esperado {ind['numero']!r} "
+                "(o SAPL deve ter sugerido outro numero depois do preenchimento - confira antes de salvar)"
+            )
 
     return falhas
 
@@ -176,11 +210,17 @@ def main() -> int:
 
     PERFIL.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
-        nav = p.chromium.launch_persistent_context(
+        # Firefox, nao Chromium: e o navegador que o usuario ja usa no dia a
+        # dia, entao a tela de preenchimento fica com a cara familiar. Nao da
+        # para conectar na janela de Firefox que a pessoa ja tem aberta -
+        # Playwright so oferece isso (connect_over_cdp) para navegadores
+        # baseados em Chrome. Este Firefox e uma instancia propria do
+        # Playwright, com perfil salvo em .perfil_navegador/: o login e feito
+        # uma vez e fica gravado para as proximas execucoes.
+        nav = p.firefox.launch_persistent_context(
             user_data_dir=str(PERFIL),
             headless=False,
             viewport={"width": 1500, "height": 950},
-            args=["--start-maximized"],
         )
         pagina = nav.pages[0] if nav.pages else nav.new_page()
 

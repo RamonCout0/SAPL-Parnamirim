@@ -122,6 +122,7 @@ def classificar_paginas(
     """
     inicios: list[Inicio] = []
     citacoes: list[dict] = []
+    ultimo_numero: int | None = None
 
     for p in paginas:
         cab = None
@@ -157,9 +158,26 @@ def classificar_paginas(
         verso = _tem(p.texto, MARCADORES_VERSO) and p.densidade < DENSIDADE_MINIMA_INICIO
         anexo_no_topo = any(k in p.texto[:200].lower() for k in MARCADORES_ANEXO)
 
-        # Abre bloco se: tem cabecalho no topo, OU tem a formula de abertura
-        # com texto suficiente (caso do cabecalho perdido pelo OCR).
-        if cab is not None:
+        # "Cartao-resumo": uma pagina de formato bem diferente (linhas curtas
+        # "INDICAÇÃO: N/ANO - data - orgao" / "VEREADOR(A): nome" /
+        # "SOLICITAÇÃO: ...") que a assessoria de alguns vereadores anexa
+        # DEPOIS da propria indicacao, repetindo o mesmo numero. Sem essa
+        # checagem ela e lida como um novo inicio identico ao anterior, e a
+        # mesma indicacao vira dois blocos. O sinal e: cabecalho bate mas SEM
+        # a formula juridica de abertura, e o numero repete o do inicio
+        # imediatamente anterior - um numero diferente aqui provavelmente e
+        # coisa nova de verdade e continua sendo tratado como inicio.
+        eh_cartao_resumo = (
+            cab is not None
+            and not estrutura
+            and ultimo_numero is not None
+            and int(cab.group(1)) == ultimo_numero
+        )
+
+        # Abre bloco se: tem cabecalho no topo (e nao for cartao-resumo), OU
+        # tem a formula de abertura com texto suficiente (caso do cabecalho
+        # perdido pelo OCR).
+        if cab is not None and not eh_cartao_resumo:
             inicios.append(
                 Inicio(
                     pagina=p.numero,
@@ -168,6 +186,17 @@ def classificar_paginas(
                     tem_cabecalho=True,
                     tem_estrutura=estrutura,
                 )
+            )
+            ultimo_numero = int(cab.group(1))
+        elif eh_cartao_resumo:
+            citacoes.append(
+                {
+                    "pagina": p.numero,
+                    "numero": int(cab.group(1)),
+                    "ano": int(cab.group(2)),
+                    "motivo": "cartao-resumo da mesma indicacao (nao abre bloco novo)",
+                    "trecho": p.texto[:150].replace("\n", " "),
+                }
             )
         elif (
             estrutura
@@ -184,6 +213,7 @@ def classificar_paginas(
                     tem_estrutura=True,
                 )
             )
+            ultimo_numero = None
 
     return inicios, citacoes
 

@@ -1,12 +1,18 @@
-"""Orquestracao: PDF unico -> 1 PDF e 1 registro por indicacao.
+"""Orquestracao: tudo que estiver em input/ -> 1 PDF e 1 registro por indicacao.
 
 Fluxo:
-    texto OCR -> blocos -> campos (regex) -> Ollama -> criterio de confianca
-                                                    |
-                                    +---------------+---------------+
-                                    |                               |
-                              PRONTO p/ SAPL              REVISAO MANUAL
-                         (indicacoes.json/csv)      (PNG da pagina + glossario)
+    input/*.pdf -> texto OCR -> blocos -> campos (regex) -> Ollama -> criterio
+                                                                          |
+                                                    +---------------------+---------------+
+                                                    |                                      |
+                                              PRONTO p/ SAPL                      REVISAO MANUAL
+                                         (indicacoes.json/csv)             (PNG da pagina + glossario)
+
+A cada execucao, output/pdfs/ e output/markdown/ sao APAGADOS e reconstruidos
+do zero a partir do que estiver em input/ NAQUELE MOMENTO - se voce tirar um
+PDF de input/, a proxima rodada simplesmente nao inclui mais as indicacoes
+dele. O glossario.csv (correcoes manuais) e config/aliases_aprendidos.json
+NAO sao apagados: sao trabalho seu, sobrevivem entre execucoes.
 
 Os valores que voce escrever no glossario.csv vencem qualquer deducao da
 maquina na proxima execucao.
@@ -15,6 +21,8 @@ from __future__ import annotations
 
 import csv
 import json
+import shutil
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -24,6 +32,7 @@ from . import ollama_client
 from .autores import ResolvedorAutor
 from .campos import extrair_ementa, extrair_nome_autor
 from .config import (
+    INPUT_DIR,
     MARKDOWN_DIR,
     OUTPUT_DIR,
     PDFS_DIR,
@@ -34,6 +43,7 @@ from .detect import auditar, classificar_paginas, inferir_numeros, montar_blocos
 from .revisao import (
     escrever_glossario,
     escrever_referencia_autores,
+    escrever_revisao_md,
     exportar_paginas_png,
     ler_glossario,
 )
@@ -47,6 +57,11 @@ CONFIANCA_MIN = 0.6
 REVISAO_DIR = OUTPUT_DIR / "revisao_manual"
 GLOSSARIO = REVISAO_DIR / "glossario.csv"
 
+# Um nome de arquivo terminando em "@AAAA.pdf" (o padrao que voce ja usa,
+# tipo "..._300_A_201@2023.pdf") define o ano so daquele arquivo, sem precisar
+# passar --ano toda vez. Sem isso no nome, vale o --ano do comando (ou 2023).
+_ANO_NO_NOME_RE = re.compile(r"@(\d{4})(?:\.pdf)?$", re.IGNORECASE)
+
 
 @dataclass
 class Indicacao:
@@ -55,12 +70,14 @@ class Indicacao:
     pagina_inicial: int
     pagina_final: int
     qtd_paginas: int
-    arquivo_pdf: str = ""
+    arquivo_origem: str = ""   # o PDF grande, em input/, de onde ela veio
+    arquivo_pdf: str = ""      # o PDF fatiado, em output/pdfs/
 
     # campos do formulario do SAPL
     tipo_materia_id: int = 6
     tipo_autor_id: int = 2
     regime_id: int = 1
+    tipo_apresentacao: str = "E"     # sempre Escrita ("O" seria Oral)
     autor_id: int = 0
     autor_nome_sapl: str = ""
     ementa: str = ""
@@ -98,40 +115,126 @@ def _texto_do_bloco(mapa: dict[int, str], ini: int, fim: int) -> str:
     return "\n".join(mapa.get(n, "") for n in range(ini, fim + 1))
 
 
-def processar(
-    caminho_pdf: str,
-    ano: int = 2023,
+def _ano_do_nome_arquivo(caminho: Path) -> int | None:
+    m = _ANO_NO_NOME_RE.search(caminho.stem + ".pdf")
+    return int(m.group(1)) if m else None
+
+
+def processar_pasta(
+    pasta_input: str | Path = INPUT_DIR,
+    ano_padrao: int = 2023,
     usar_ollama: bool = True,
     gerar_pdfs: bool = True,
 ) -> list[Indicacao]:
+    """Processa TODOS os PDFs de uma pasta e combina num unico resultado."""
     garantir_dirs()
     ids = carregar_ids()
+    pasta_input = Path(pasta_input)
 
-    print(f"[1/6] Extraindo texto de {Path(caminho_pdf).name} ...")
-    paginas = extrair_paginas(caminho_pdf)
-    mapa = {p.numero: p.texto for p in paginas}
-    print(f"      {len(paginas)} paginas")
+    # Aceita tanto uma pasta (o uso normal: processa tudo que tiver dentro)
+    # quanto o caminho de um unico PDF (util para testar so um arquivo).
+    if pasta_input.is_file():
+        pdfs = [pasta_input]
+    else:
+        pdfs = sorted(pasta_input.glob("*.pdf"))
 
-    print("[2/6] Detectando inicios e fatiando ...")
-    inicios, citacoes = classificar_paginas(paginas)
-    blocos = auditar(montar_blocos(inferir_numeros(inicios, ano), len(paginas), ano))
-    print(f"      {len(blocos)} indicacoes")
+    if not pdfs:
+        print(f"Nenhum PDF encontrado em {pasta_input}")
+        print("Zerando o output (nao ha nada em input\\ agora) ...")
+        # Nao para aqui: continua ate o fim com uma lista vazia, para o
+        # output refletir de verdade "nada" em vez de deixar para tras os
+        # PDFs fatiados e o glossario de uma rodada anterior.
+    else:
+        print(f"{len(pdfs)} arquivo(s) em {pasta_input}:")
+        for p in pdfs:
+            print(f"  {p.name}")
 
     if usar_ollama:
         if not ollama_client.esta_no_ar():
-            print("      AVISO: Ollama nao respondeu; seguindo apenas com regex.")
+            print("AVISO: Ollama nao respondeu; seguindo apenas com regex.")
             usar_ollama = False
         else:
-            print(f"      Ollama ok, modelo {ollama_client.OLLAMA_MODEL}")
+            print(f"Ollama ok, modelo {ollama_client.OLLAMA_MODEL}")
 
     resolvedor = ResolvedorAutor(ids, usar_ollama=usar_ollama)
-    manuais = ler_glossario(GLOSSARIO)
-    if manuais:
-        print(f"      glossario preenchido: {len(manuais)} correcoes manuais")
 
-    print("[3/6] Extraindo ementa e autor ...")
+    # As saidas DERIVADAS (pdfs fatiados, markdown por indicacao) sao
+    # reconstruidas do zero a cada execucao - e o que garante que, se voce
+    # tirar um PDF de input/, as indicacoes dele somem do output tambem em vez
+    # de ficar "fantasma" de uma rodada anterior. glossario.csv e
+    # aliases_aprendidos.json NAO entram aqui: sao preservados de proposito.
+    for pasta in (PDFS_DIR, MARKDOWN_DIR):
+        if pasta.exists():
+            shutil.rmtree(pasta)
+        pasta.mkdir(parents=True, exist_ok=True)
+
+    todas: list[Indicacao] = []
+    citacoes_todas: list[dict] = []
+    origem_de: dict[tuple[int, int], str] = {}
+
+    for caminho_pdf in pdfs:
+        ano = _ano_do_nome_arquivo(caminho_pdf) or ano_padrao
+        print(f"\n--- {caminho_pdf.name} (ano {ano}) ---")
+        indicacoes, citacoes = _extrair_um_pdf(str(caminho_pdf), ano, usar_ollama, resolvedor)
+        citacoes_todas.extend(citacoes)
+
+        for ind in indicacoes:
+            chave = (ind.numero, ind.ano)
+            if chave in origem_de:
+                # Em avisos_bloco isto seria so informativo. Vai em motivos de
+                # proposito: e o que forca a indicacao para revisao em vez de
+                # deixar dois arquivos disputarem silenciosamente o mesmo
+                # numero (um deles venceria sem voce saber que houve colisao).
+                ind.motivos.append(
+                    f"numero {ind.identificador} tambem aparece em "
+                    f"{origem_de[chave]} - dois arquivos descrevem a mesma indicacao?"
+                )
+            else:
+                origem_de[chave] = caminho_pdf.name
+        todas.extend(indicacoes)
+
+    print(f"\n{len(todas)} indicacoes ao todo. Aplicando correcoes do glossario ...")
+    _aplicar_correcoes_manuais(todas, ids, resolvedor)
+    for ind in todas:
+        _classificar(ind)
+
+    resolvedor.salvar_cache()
+    resolvedor.salvar_aprendidos()
+
+    if gerar_pdfs:
+        print("Gerando um PDF por indicacao ...")
+        por_origem: dict[str, list[Indicacao]] = {}
+        for ind in todas:
+            por_origem.setdefault(ind.arquivo_origem, []).append(ind)
+        for origem, inds in por_origem.items():
+            _fatiar_pdf(origem, inds)
+
+    print("Gravando resultados ...")
+    _gravar_saidas(todas, citacoes_todas, ids)
+
+    print("Preparando revisao manual ...")
+    _preparar_revisao(todas, ids)
+
+    return todas
+
+
+def _extrair_um_pdf(
+    caminho_pdf: str,
+    ano: int,
+    usar_ollama: bool,
+    resolvedor: ResolvedorAutor,
+) -> tuple[list[Indicacao], list[dict]]:
+    """Extrai e classifica as indicacoes de UM pdf. Sem aplicar o glossario
+    ainda - isso e feito uma vez so, depois de juntar todos os arquivos."""
+    paginas = extrair_paginas(caminho_pdf)
+    mapa = {p.numero: p.texto for p in paginas}
+    print(f"  {len(paginas)} paginas")
+
+    inicios, citacoes = classificar_paginas(paginas)
+    blocos = auditar(montar_blocos(inferir_numeros(inicios, ano), len(paginas), ano))
+    print(f"  {len(blocos)} indicacoes")
+
     indicacoes: list[Indicacao] = []
-    aprendidos: list[str] = []
     for i, b in enumerate(blocos, start=1):
         texto = _texto_do_bloco(mapa, b.pagina_inicial, b.pagina_final)
         ind = Indicacao(
@@ -142,6 +245,7 @@ def processar(
             qtd_paginas=b.qtd_paginas,
             numero_inferido=b.numero_inferido,
             avisos_bloco=list(b.avisos),
+            arquivo_origem=caminho_pdf,
         )
 
         res_ementa = extrair_ementa(texto)
@@ -186,57 +290,53 @@ def processar(
         elif achado["certeza"] != "alta":
             ind.motivos.append(f"autor: certeza {achado['certeza']} ({achado['origem']})")
 
-        # Correcao manual vence tudo.
-        manual = manuais.get(ind.identificador)
-        if manual:
-            if manual.get("ementa"):
-                ind.ementa = manual["ementa"]
-                ind.ementa_metodo = "manual"
-                ind.confianca = 1.0
-                ind.motivos = [m for m in ind.motivos if not m.startswith("ementa:")]
-            if manual.get("autor_id"):
-                ind.autor_id = manual["autor_id"]
-                nomes = {a["id"]: a["nome"] for a in ids["autores"]}
-                ind.autor_nome_sapl = nomes.get(manual["autor_id"], "")
-                ind.autor_origem = "manual"
-                ind.motivos = [m for m in ind.motivos if not m.startswith("autor:")]
-                # Vira alias permanente: as outras indicacoes com o mesmo nome
-                # civil passam a resolver sozinhas na proxima rodada.
-                if resolvedor.aprender(
-                    ind.autor_no_documento, manual["autor_id"], ind.identificador
-                ):
-                    aprendidos.append(
-                        f"{ind.autor_no_documento} -> {ind.autor_nome_sapl}"
-                    )
-            if manual.get("autor_id_invalido"):
-                ind.motivos.append(
-                    f"autor: AUTOR_ID_MANUAL '{manual['autor_id_invalido']}' nao e numero"
-                )
-
-        _classificar(ind)
         indicacoes.append(ind)
         if i % 10 == 0 or i == len(blocos):
-            print(f"      {i}/{len(blocos)}")
+            print(f"  {i}/{len(blocos)}")
 
-    resolvedor.salvar_cache()
-    resolvedor.salvar_aprendidos()
+    return indicacoes, citacoes
+
+
+def _aplicar_correcoes_manuais(
+    todas: list[Indicacao], ids: dict, resolvedor: ResolvedorAutor
+) -> None:
+    manuais = ler_glossario(GLOSSARIO)
+    if manuais:
+        print(f"glossario preenchido: {len(manuais)} correcoes manuais")
+
+    nomes = {a["id"]: a["nome"] for a in ids["autores"]}
+    aprendidos: list[str] = []
+
+    for ind in todas:
+        manual = manuais.get(ind.identificador)
+        if not manual:
+            continue
+        if manual.get("ementa"):
+            ind.ementa = manual["ementa"]
+            ind.ementa_metodo = "manual"
+            ind.confianca = 1.0
+            ind.motivos = [m for m in ind.motivos if not m.startswith("ementa:")]
+        if manual.get("autor_id"):
+            ind.autor_id = manual["autor_id"]
+            ind.autor_nome_sapl = nomes.get(manual["autor_id"], "")
+            ind.autor_origem = "manual"
+            ind.motivos = [m for m in ind.motivos if not m.startswith("autor:")]
+            # Vira alias permanente: as outras indicacoes com o mesmo nome
+            # civil passam a resolver sozinhas na proxima rodada.
+            if resolvedor.aprender(
+                ind.autor_no_documento, manual["autor_id"], ind.identificador
+            ):
+                aprendidos.append(f"{ind.autor_no_documento} -> {ind.autor_nome_sapl}")
+        if manual.get("autor_id_invalido"):
+            ind.motivos.append(
+                f"autor: AUTOR_ID_MANUAL '{manual['autor_id_invalido']}' nao e numero"
+            )
+
     if aprendidos:
-        print(f"      aprendeu {len(aprendidos)} nome(s) civil(is) do glossario:")
+        print(f"aprendeu {len(aprendidos)} nome(s) civil(is) do glossario:")
         for a in aprendidos:
-            print(f"        {a}")
-        print("      rode de novo para aplicar aos demais casos iguais")
-
-    if gerar_pdfs:
-        print("[4/6] Gerando um PDF por indicacao ...")
-        _fatiar_pdf(caminho_pdf, indicacoes)
-
-    print("[5/6] Gravando resultados ...")
-    _gravar_saidas(indicacoes, citacoes, ids)
-
-    print("[6/6] Preparando revisao manual ...")
-    _preparar_revisao(caminho_pdf, indicacoes, ids)
-
-    return indicacoes
+            print(f"  {a}")
+        print("rode de novo para aplicar aos demais casos iguais")
 
 
 def _classificar(ind: Indicacao) -> None:
@@ -293,11 +393,11 @@ def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict)
     )
 
     colunas = [
-        "status", "numero", "ano", "paginas", "arquivo_pdf",
+        "status", "numero", "ano", "paginas", "arquivo_origem", "arquivo_pdf",
         "tipo_materia_id", "ano_sapl", "numero_sapl",
         "tipo_autor_id", "autor_id", "autor_nome_sapl", "regime_id",
-        "ementa", "autor_no_documento", "autor_origem", "autor_escore",
-        "verbo", "ementa_metodo", "confianca", "motivos",
+        "tipo_apresentacao", "ementa", "autor_no_documento", "autor_origem",
+        "autor_escore", "verbo", "ementa_metodo", "confianca", "motivos",
     ]
     with open(OUTPUT_DIR / "indicacoes.csv", "w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f, delimiter=";")
@@ -306,10 +406,12 @@ def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict)
             w.writerow([
                 i.status, i.numero, i.ano,
                 f"{i.pagina_inicial}-{i.pagina_final}",
+                Path(i.arquivo_origem).name if i.arquivo_origem else "",
                 Path(i.arquivo_pdf).name if i.arquivo_pdf else "",
                 i.tipo_materia_id, i.ano, i.numero,
                 i.tipo_autor_id, i.autor_id, i.autor_nome_sapl, i.regime_id,
-                i.ementa, i.autor_no_documento, i.autor_origem, i.autor_escore,
+                i.tipo_apresentacao, i.ementa, i.autor_no_documento,
+                i.autor_origem, i.autor_escore,
                 i.verbo, i.ementa_metodo, i.confianca, " | ".join(i.motivos),
             ])
 
@@ -320,6 +422,7 @@ def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict)
                 f"# Indicação nº {ind.identificador}",
                 "",
                 f"- **Status:** {ind.status}",
+                f"- **Arquivo de origem:** {Path(ind.arquivo_origem).name}",
                 f"- **Páginas no PDF original:** {ind.pagina_inicial}-{ind.pagina_final}",
                 f"- **Autor no documento:** {ind.autor_no_documento or '—'}",
                 f"- **Autor no SAPL:** {ind.autor_nome_sapl or '—'} (id {ind.autor_id})",
@@ -338,12 +441,13 @@ def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict)
         )
 
 
-def _preparar_revisao(caminho_pdf: str, indicacoes: list[Indicacao], ids: dict) -> None:
+def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
     pendentes = [i for i in indicacoes if i.status == "revisao"]
     escrever_referencia_autores(ids, REVISAO_DIR / "IDS_DE_AUTOR.md")
 
-    # Apaga PNG de rodadas anteriores: se uma indicacao deixou de ser pendente,
-    # a imagem dela nao pode continuar na pasta pedindo revisao.
+    # Apaga PNG de rodadas anteriores: se uma indicacao deixou de ser
+    # pendente (ou o PDF dela sumiu de input/), a imagem dela nao pode
+    # continuar na pasta pedindo revisao.
     pasta_img = REVISAO_DIR / "imagens"
     if pasta_img.exists():
         vivos = {f"{i.numero}-{i.ano}" for i in pendentes}
@@ -352,13 +456,25 @@ def _preparar_revisao(caminho_pdf: str, indicacoes: list[Indicacao], ids: dict) 
                 antigo.unlink()
 
     if not pendentes:
-        print("      nada pendente")
+        # Regrava vazio em vez de so sair: se a rodada anterior deixou
+        # pendencias e agora nao ha nenhuma (porque o PDF sumiu de input/ ou
+        # tudo foi resolvido), o glossario.csv antigo nao pode continuar
+        # apontando indicacoes que nao existem mais.
+        if GLOSSARIO.exists():
+            ja_preenchidos = ler_glossario(GLOSSARIO)
+            if ja_preenchidos:
+                reserva = GLOSSARIO.with_name("glossario_anterior.csv")
+                GLOSSARIO.replace(reserva)
+                print(f"glossario anterior preservado em {reserva.name}")
+        escrever_glossario([], GLOSSARIO)
+        escrever_revisao_md([], REVISAO_DIR / "REVISAO.md")
+        print("nada pendente")
         return
 
     linhas = []
     for ind in pendentes:
         imagens = exportar_paginas_png(
-            caminho_pdf,
+            ind.arquivo_origem,
             list(range(ind.pagina_inicial, ind.pagina_final + 1)),
             REVISAO_DIR / "imagens",
             prefixo=f"{ind.numero}-{ind.ano}",
@@ -386,7 +502,9 @@ def _preparar_revisao(caminho_pdf: str, indicacoes: list[Indicacao], ids: dict) 
         if ja_preenchidos:
             reserva = GLOSSARIO.with_name("glossario_anterior.csv")
             GLOSSARIO.replace(reserva)
-            print(f"      glossario anterior preservado em {reserva.name}")
+            print(f"glossario anterior preservado em {reserva.name}")
 
     escrever_glossario(linhas, GLOSSARIO)
-    print(f"      {len(pendentes)} indicacoes para revisar em {GLOSSARIO}")
+    escrever_revisao_md(linhas, REVISAO_DIR / "REVISAO.md")
+    print(f"{len(pendentes)} indicacoes para revisar em {GLOSSARIO}")
+    print(f"leitura formatada em {REVISAO_DIR / 'REVISAO.md'} (abra o preview de Markdown)")

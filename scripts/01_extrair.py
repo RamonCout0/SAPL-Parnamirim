@@ -1,9 +1,18 @@
-"""Pipeline completo: PDF unico -> PDFs separados + planilha pronta para o SAPL.
+"""Pipeline completo: tudo que estiver em input/ -> PDFs separados + planilha
+pronta para o SAPL.
 
-    python scripts\\01_extrair.py "caminho\\do.pdf"
-    python scripts\\01_extrair.py "caminho\\do.pdf" --ano 2023
-    python scripts\\01_extrair.py "caminho\\do.pdf" --sem-ollama   (rapido, so regex)
-    python scripts\\01_extrair.py "caminho\\do.pdf" --sem-pdfs     (nao refatia)
+    python scripts\\01_extrair.py                    processa tudo em input\\
+    python scripts\\01_extrair.py --ano 2023          ano padrao (se o nome do arquivo
+                                                       nao terminar em "@AAAA.pdf")
+    python scripts\\01_extrair.py "caminho\\do.pdf"    processa so esse arquivo
+    python scripts\\01_extrair.py --sem-ollama         rapido, so regex
+    python scripts\\01_extrair.py --sem-pdfs           nao refatia os PDFs
+
+Coloque os PDFs em input\\ e rode sem argumento nenhum - e o jeito normal de
+usar. A cada execucao, o output e reconstruido do zero a partir do que estiver
+em input\\ naquele momento: se voce tirar um PDF de la, as indicacoes dele
+somem do output na proxima rodada. As correcoes que voce fez no glossario nao
+se perdem - isso e preservado entre execucoes.
 
 Saidas em output/:
     pdfs/NNN-AAAA.pdf          um arquivo por indicacao, pronto para anexar
@@ -21,30 +30,33 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-from src.pipeline import GLOSSARIO, processar
+from src.config import INPUT_DIR
+from src.pipeline import GLOSSARIO, processar_pasta
 
 
 def main() -> int:
     args = sys.argv[1:]
-    if not args:
-        print(__doc__)
-        return 2
 
-    pdf = Path(args[0])
-    if not pdf.exists():
-        print(f"ERRO: nao achei o PDF: {pdf}")
-        return 1
+    # O primeiro argumento so conta se NAO comecar com "--" (senao e uma flag).
+    posicionais = [a for a in args if not a.startswith("--")]
+    origem = posicionais[0] if posicionais else INPUT_DIR
 
     ano = 2023
     if "--ano" in args:
         ano = int(args[args.index("--ano") + 1])
 
-    indicacoes = processar(
-        str(pdf),
-        ano=ano,
+    indicacoes = processar_pasta(
+        origem,
+        ano_padrao=ano,
         usar_ollama="--sem-ollama" not in args,
         gerar_pdfs="--sem-pdfs" not in args,
     )
+    if not indicacoes:
+        # Pasta vazia e um estado valido (nao um erro): o output ja foi
+        # zerado dentro de processar_pasta. So avisa e sai.
+        print(f"\nOutput zerado - nada em {INPUT_DIR} agora.")
+        print("Coloque um PDF la e rode de novo.")
+        return 1
 
     prontas = [i for i in indicacoes if i.status == "pronto"]
     revisao = [i for i in indicacoes if i.status == "revisao"]
@@ -54,14 +66,14 @@ def main() -> int:
     print(f"{'='*78}")
 
     if revisao:
-        print("\nPARA REVISAR (confira o PNG e preencha o glossario):")
+        print("\nPARA REVISAR:")
         for i in revisao:
             print(f"  {i.identificador:>9}  pgs {i.pagina_inicial}-{i.pagina_final}  "
                   f"{' | '.join(i.motivos)}")
-        print(f"\n  glossario: {GLOSSARIO}")
-        print("  imagens  : output\\revisao_manual\\imagens")
-        print("  IDs autor: output\\revisao_manual\\IDS_DE_AUTOR.md")
-        print("\n  Depois de preencher, rode este script de novo para incorporar.")
+        print(f"\n  Abra o formulario de revisao no navegador:")
+        print(f"    .venv\\Scripts\\python scripts\\03_revisar.py")
+        print(f"  (ou edite direto: {GLOSSARIO})")
+        print("\n  Depois de revisar, rode este script de novo para incorporar.")
 
     autores: dict[str, int] = {}
     for i in prontas:
