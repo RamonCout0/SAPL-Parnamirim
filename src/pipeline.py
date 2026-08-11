@@ -40,6 +40,7 @@ from .config import (
     garantir_dirs,
 )
 from .detect import auditar, classificar_paginas, inferir_numeros, montar_blocos
+from .progresso import Progresso
 from .revisao import (
     escrever_glossario,
     escrever_referencia_autores,
@@ -226,7 +227,7 @@ def _extrair_um_pdf(
 ) -> tuple[list[Indicacao], list[dict]]:
     """Extrai e classifica as indicacoes de UM pdf. Sem aplicar o glossario
     ainda - isso e feito uma vez so, depois de juntar todos os arquivos."""
-    paginas = extrair_paginas(caminho_pdf)
+    paginas = extrair_paginas(caminho_pdf, mostrar_progresso=True)
     mapa = {p.numero: p.texto for p in paginas}
     print(f"  {len(paginas)} paginas")
 
@@ -235,6 +236,7 @@ def _extrair_um_pdf(
     print(f"  {len(blocos)} indicacoes")
 
     indicacoes: list[Indicacao] = []
+    barra = Progresso(len(blocos), prefixo="  ementa/autor ")
     for i, b in enumerate(blocos, start=1):
         texto = _texto_do_bloco(mapa, b.pagina_inicial, b.pagina_final)
         ind = Indicacao(
@@ -291,8 +293,7 @@ def _extrair_um_pdf(
             ind.motivos.append(f"autor: certeza {achado['certeza']} ({achado['origem']})")
 
         indicacoes.append(ind)
-        if i % 10 == 0 or i == len(blocos):
-            print(f"  {i}/{len(blocos)}")
+        barra.avancar()
 
     return indicacoes, citacoes
 
@@ -366,6 +367,7 @@ def _classificar(ind: Indicacao) -> None:
 
 def _fatiar_pdf(caminho_pdf: str, indicacoes: list[Indicacao]) -> None:
     leitor = PdfReader(caminho_pdf)
+    barra = Progresso(len(indicacoes), prefixo=f"  {Path(caminho_pdf).name[:30]:<30} ")
     for ind in indicacoes:
         escritor = PdfWriter()
         for n in range(ind.pagina_inicial, ind.pagina_final + 1):
@@ -374,6 +376,7 @@ def _fatiar_pdf(caminho_pdf: str, indicacoes: list[Indicacao]) -> None:
         with open(destino, "wb") as f:
             escritor.write(f)
         ind.arquivo_pdf = str(destino)
+        barra.avancar()
 
 
 def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict) -> None:
@@ -472,6 +475,7 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
         return
 
     linhas = []
+    barra = Progresso(len(pendentes), prefixo="  paginas (png) ")
     for ind in pendentes:
         imagens = exportar_paginas_png(
             ind.arquivo_origem,
@@ -479,6 +483,7 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
             REVISAO_DIR / "imagens",
             prefixo=f"{ind.numero}-{ind.ano}",
         )
+        barra.avancar()
         linhas.append({
             "numero": ind.numero,
             "ano": ind.ano,

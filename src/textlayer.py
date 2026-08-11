@@ -62,12 +62,20 @@ def _limpar(texto: str) -> str:
     return texto.strip()
 
 
-def extrair_paginas(caminho_pdf: str) -> list[Pagina]:
+def extrair_paginas(caminho_pdf: str, mostrar_progresso: bool = False) -> list[Pagina]:
     leitor = PdfReader(caminho_pdf)
+    total = len(leitor.pages)
+    barra = None
+    if mostrar_progresso:
+        from .progresso import Progresso
+        barra = Progresso(total, prefixo="  lendo paginas ")
+
     paginas = []
     for i, pg in enumerate(leitor.pages, start=1):
         bruto = pg.extract_text() or ""
         limpo = _limpar(bruto)
+        if barra:
+            barra.avancar()
         paginas.append(
             Pagina(
                 numero=i,
