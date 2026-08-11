@@ -9,6 +9,15 @@ confere a tela e clica em salvar.
     python scripts\\02_preencher_sapl.py --numero 300      so a 300
     python scripts\\02_preencher_sapl.py --de 300 --ate 290
 
+Sem nenhuma dessas opcoes, o script PERGUNTA de qual numero comecar (ENTER
+para comecar do topo) - assim, se parou na 256 numa sessao anterior, nao
+precisa apertar ENTER em tudo de novo desde a 300, so digita 256.
+
+Se a janela travar ou fechar no meio (trocar de tela, minimizar por muito
+tempo etc.), o script nao derruba a sessao inteira: avisa o erro e pergunta
+se voce quer tentar de novo, pular aquela indicacao, ou parar por ali - da
+para continuar depois informando o numero onde parou.
+
 O navegador e Firefox (instancia propria do Playwright, nao a janela que voce
 ja tem aberta - Playwright so conecta em janelas ja abertas de navegadores
 baseados em Chrome). Primeira execucao: a janela abre na tela de login do SAPL
@@ -26,6 +35,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 from src.config import CONFIG_DIR, OUTPUT_DIR, RAIZ
@@ -78,6 +88,25 @@ def definir_texto(alvo, valor: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def _pagina_valida(nav, pagina):
+    """Devolve uma pagina utilizavel. Se a atual foi fechada (janela fechada
+    a mao, crash por ficar muito tempo em segundo plano etc.), reaproveita
+    outra aba aberta no mesmo contexto ou abre uma nova - sem isso, qualquer
+    fechamento acidental da janela derrubava o script inteiro."""
+    try:
+        if not pagina.is_closed():
+            return pagina
+    except PlaywrightError:
+        pass
+    for p in nav.pages:
+        try:
+            if not p.is_closed():
+                return p
+        except PlaywrightError:
+            continue
+    return nav.new_page()
 
 
 def descobrir_rotas(pagina, base: str) -> list[str]:
@@ -184,6 +213,31 @@ def preencher(pagina, form: dict, ind: dict) -> list[str]:
     return falhas
 
 
+def _pedir_numero_inicial(prontas: list[dict]) -> list[dict]:
+    """Pergunta de onde comecar, para nao precisar apertar ENTER desde o topo
+    toda vez que a sessao para no meio. So pergunta no uso interativo (sem
+    --numero/--de/--ate, que ja resolvem isso via linha de comando)."""
+    numeros = [i["numero"] for i in prontas]
+    print(f"\n{len(prontas)} prontas: da {numeros[0]} ate {numeros[-1]}.")
+    resposta = input(
+        "Começar de qual número? (ENTER para começar do topo): "
+    ).strip()
+    if not resposta:
+        return prontas
+    try:
+        inicio = int(resposta)
+    except ValueError:
+        print(f"  '{resposta}' não é um número - começando do topo mesmo.")
+        return prontas
+
+    cortado = [i for i in prontas if i["numero"] <= inicio]
+    if not cortado:
+        print(f"  nenhuma pronta com número <= {inicio} - começando do topo mesmo.")
+        return prontas
+    print(f"  começando em {cortado[0]['numero']}/{cortado[0]['ano']}.")
+    return cortado
+
+
 def main() -> int:
     args = sys.argv[1:]
     form = carregar_form()
@@ -193,6 +247,7 @@ def main() -> int:
     dados = json.loads((OUTPUT_DIR / "indicacoes.json").read_text(encoding="utf-8"))
     prontas = [i for i in dados["indicacoes"] if i["status"] == "pronto"]
 
+    filtro_por_cli = "--numero" in args or "--de" in args or "--ate" in args
     if "--numero" in args:
         alvo = int(args[args.index("--numero") + 1])
         prontas = [i for i in prontas if i["numero"] == alvo]
@@ -207,6 +262,9 @@ def main() -> int:
     if not prontas and not so_inspecionar:
         print("Nenhuma indicacao com status 'pronto'. Rode 01_extrair.py primeiro.")
         return 1
+
+    if prontas and not so_inspecionar and not filtro_por_cli:
+        prontas = _pedir_numero_inicial(prontas)
 
     PERFIL.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
@@ -257,9 +315,33 @@ def main() -> int:
         print(f"\n{len(prontas)} indicacoes para cadastrar.")
         print("Para cada uma: eu preencho, voce anexa o PDF, poe a data e salva.\n")
 
-        for n, ind in enumerate(prontas, start=1):
-            pagina.goto(url_form, wait_until="domcontentloaded")
-            falhas = preencher(pagina, form, ind)
+        n = 0
+        parou_em: dict | None = None
+        while n < len(prontas):
+            ind = prontas[n]
+            n += 1
+            try:
+                pagina = _pagina_valida(nav, pagina)
+                pagina.goto(url_form, wait_until="domcontentloaded")
+                falhas = preencher(pagina, form, ind)
+            except PlaywrightError as e:
+                # A janela pode ter sido fechada, travado, ou ficado tempo
+                # demais em segundo plano - isto evita que a sessao inteira
+                # caia por causa de UMA indicacao. "numero onde parou" fica
+                # registrado para retomar depois com o prompt inicial.
+                print(f"{'-'*74}")
+                print(f"[{n}/{len(prontas)}] Indicação {ind['numero']}/{ind['ano']} - ERRO NO NAVEGADOR")
+                print(f"  {type(e).__name__}: {str(e).splitlines()[0]}")
+                resp = input(
+                    "  [t] tentar de novo   [p] pular esta   [s] parar aqui: "
+                ).strip().lower()
+                if resp == "t":
+                    n -= 1  # repete a mesma indicacao na proxima volta
+                    continue
+                if resp == "p":
+                    continue
+                parou_em = ind
+                break
 
             print(f"{'-'*74}")
             print(f"[{n}/{len(prontas)}] Indicação {ind['numero']}/{ind['ano']}")
@@ -275,7 +357,13 @@ def main() -> int:
 
             resposta = input("  ENTER para a proxima, 's' para sair: ").strip().lower()
             if resposta == "s":
+                parou_em = prontas[n] if n < len(prontas) else None
                 break
+
+        if parou_em:
+            print(f"\nParou em {parou_em['numero']}/{parou_em['ano']}. Para continuar dali:")
+            print(f"  .venv\\Scripts\\python scripts\\02_preencher_sapl.py")
+            print(f"  (e digite {parou_em['numero']} quando ele perguntar de onde começar)")
 
         print("\nFim. A janela fica aberta; feche quando quiser.")
         input("ENTER para encerrar o navegador. ")
