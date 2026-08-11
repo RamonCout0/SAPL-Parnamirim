@@ -3,13 +3,20 @@
 Pega um PDF escaneado com **muitas indicações juntas**, separa uma por uma,
 extrai os campos e abre o formulário do SAPL já preenchido.
 
-Roda 100% local: o OCR já vem embutido no PDF e o modelo de linguagem é o
-**Ollama** na própria máquina. Nada sai do computador.
+Roda 100% local: o modelo de linguagem é o **Ollama** na própria máquina.
+Nada sai do computador.
 
 **Requisitos reais:** Python 3.9 ou superior. Nada mais é obrigatório —
-sem GPU, sem Ollama, sem internet para processar. O Ollama é opcional e
-`--sem-ollama` produz o mesmo conjunto de indicações prontas (testado: 91/9 nos
-dois casos). Internet só é necessária no passo 4, para acessar o SAPL.
+sem GPU, sem Ollama, sem Tesseract, sem internet para processar. O Ollama é
+opcional e `--sem-ollama` produz o mesmo conjunto de indicações prontas
+(testado: mesmo resultado nos dois casos). Internet só é necessária no passo
+5, para acessar o SAPL.
+
+A maioria dos lotes já vem com OCR embutido no PDF (o padrão que a Câmara
+usa). Para as páginas que **não** vêm - scans crus, sem camada de texto
+nenhuma - o Tesseract entra como reserva automática, rodando OCR local só
+naquela página. Sem o Tesseract instalado, essas páginas raras vão direto
+para revisão manual em vez de travar o processamento.
 
 ---
 
@@ -122,6 +129,14 @@ corrija o que faltar) e uma lista com o nome dos vereadores. Clique em
 **Salvar e continuar** e ele já passa para a próxima. Quando acabar, ele avisa
 na tela.
 
+**Nem todo aviso é sobre ementa ou autor.** "Número deduzido pela sequência"
+e "bloco com 1 página" são avisos estruturais — não têm texto para corrigir,
+só pedem que você confira a imagem. Para esses, o formulário mostra uma caixa
+"Já conferi a página" — marque e salve, sem precisar mexer em ementa/autor.
+Sem isso marcado, a indicação ficaria pedindo revisão para sempre, mesmo
+depois de você preencher ementa e autor certinhos, porque o motivo que estava
+bloqueando era outro.
+
 Depois **rode o passo 3 de novo**. O que você escreveu vence qualquer dedução
 da máquina, e cada nome civil que você confirmar entra em
 `config/aliases_aprendidos.json` — na próxima vez ele resolve sozinho.
@@ -133,14 +148,21 @@ Os mesmos dados ficam em `output/revisao_manual/`:
 
 - `imagens/NNN-2023_pgNNN.png` — a página escaneada
 - `glossario.csv` — abra num programa de planilha (Excel/LibreOffice), nunca
-  num editor de código: as colunas `EMENTA_MANUAL` e `AUTOR_ID_MANUAL` (as
-  duas que você preenche) vêm logo no início da linha; consulte
-  `IDS_DE_AUTOR.md` para os ids
+  num editor de código: as colunas `EMENTA_MANUAL`, `AUTOR_ID_MANUAL` e
+  `CONFIRMAR` (as três que você preenche) vêm logo no início da linha;
+  consulte `IDS_DE_AUTOR.md` para os ids. Escreva `sim` em `CONFIRMAR` para
+  os avisos estruturais (número deduzido, 1 página) que não têm ementa/autor
+  para corrigir.
 - `REVISAO.md` — o mesmo conteúdo, só para leitura, com as imagens já
   incorporadas (abra o preview de Markdown do editor)
 
 `scripts/03_revisar.py` edita exatamente esse `glossario.csv` — os dois
 caminhos terminam no mesmo lugar.
+
+Um `glossario_anterior.csv` pode aparecer ao lado: é só uma cópia de
+segurança automática, feita sempre que o glossário é reescrito com correções
+suas já dentro — o sistema nunca volta a ler esse arquivo, é só para você
+recuperar algo manualmente se precisar. Pode apagar sem medo.
 </details>
 
 Esse arquivo **é versionado**: dando commit nele, o mapeamento
@@ -192,6 +214,19 @@ Três armadilhas reais do documento, todas tratadas:
    "vereador com assento nesta egrégia Casa Legislativa", e o número é deduzido
    pela posição na sequência — sempre marcado para você confirmar.
 
+## Página sem OCR nenhum
+
+Todo PDF passa por essa checagem, página por página. Se o texto embutido no
+PDF está vazio (ou quase — scans crus, sem qualquer camada de texto), o
+Tesseract entra automaticamente e faz o OCR **só daquela página**, localmente.
+O texto que ele produz segue para o **mesmo** critério de confiança de
+sempre (extração de ementa, autor, tamanho mínimo) — não existe regra
+especial para texto vindo de OCR local: se não passar, vai para revisão
+manual, exatamente como qualquer outra página problemática.
+
+Sem o Tesseract instalado, essas páginas simplesmente ficam sem texto e vão
+para revisão — o processamento continua normalmente para o resto do lote.
+
 ## Onde o Ollama entra (e onde não entra)
 
 O modelo **não decide nada que vá para o SAPL**. Isso foi uma decisão tomada
@@ -232,6 +267,8 @@ config/
   aliases_aprendidos.json  nomes civis que você confirmou (cresce com o uso)
 src/
   textlayer.py   PDF -> texto por página, limpando timbre e carimbo
+  ocr.py         OCR de reserva (Tesseract) para página sem texto embutido
+  progresso.py   barra de progresso no terminal
   detect.py      acha os inícios e fatia em blocos
   campos.py      ementa e nome do autor por regex
   autores.py     nome do papel -> id do SAPL
@@ -249,7 +286,12 @@ scripts/
 
 ## Ambiente
 
-Python 3.12 em `.venv`, Ollama com `qwen2.5:3b-instruct`, Playwright + Firefox.
+Python 3.12 em `.venv`, Ollama com `qwen2.5:3b-instruct`, Playwright + Firefox,
+Tesseract OCR + pacote de português (opcional — ver
+[Página sem OCR nenhum](#página-sem-ocr-nenhum)).
+
+`scripts\instalar.ps1` cuida de tudo isso automaticamente. Para só as
+bibliotecas Python:
 
 ```bash
 .venv\Scripts\python -m pip install -r requirements.txt

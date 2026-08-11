@@ -38,6 +38,10 @@ __pycache__/
 *.egg-info/
 .Python
 
+# Pacote de portugues do Tesseract (~2 MB, binario) - baixado por
+# scripts\instalar.ps1, nao faz sentido versionar.
+tessdata/
+
 
 # ---------------------------------------------------------------------------
 # Editor e sistema operacional

@@ -50,7 +50,8 @@ def escrever_linhas(linhas: list[dict]) -> None:
 
 def ja_revisada(linha: dict) -> bool:
     return bool((linha.get("EMENTA_MANUAL") or "").strip()
-                or (linha.get("AUTOR_ID_MANUAL") or "").strip())
+                or (linha.get("AUTOR_ID_MANUAL") or "").strip()
+                or (linha.get("CONFIRMAR") or "").strip())
 
 
 def carregar_autores_ordenados() -> list[dict]:
@@ -143,8 +144,23 @@ def render_item(linha: dict, restantes: int, total: int) -> str:
 
     conteudo_extra = f'<div class="referencia">{escape(sugestao_ementa)}</div>' if sugestao_ementa else ""
 
+    motivo = linha.get("motivo") or ""
+    # Estes dois motivos nao tem ementa/autor para corrigir - so aparecem
+    # porque a maquina nao consegue confirmar sozinha o numero ou o verso.
+    # Preencher os campos acima nao resolve; so o checkbox abaixo resolve.
+    eh_estrutural = ("numero deduzido" in motivo) or ("1 pagina" in motivo)
+    confirmado_atual = (linha.get("CONFIRMAR") or "").strip()
+    marcado = " checked" if confirmado_atual else ""
+    aviso_estrutural = (
+        '<div class="motivo" style="background:#eef2ff;border-color:#a5b4fc;">'
+        '<b>Este aviso não tem ementa nem autor para corrigir.</b> '
+        'Confira a imagem e, se estiver tudo certo, marque a caixa abaixo.'
+        '</div>'
+    ) if eh_estrutural else ""
+
     conteudo = f"""
-<div class="motivo"><b>Por que está aqui:</b> {escape(linha.get('motivo') or '')}</div>
+<div class="motivo"><b>Por que está aqui:</b> {escape(motivo)}</div>
+{aviso_estrutural}
 <div class="grade">
   <div class="col-imagens">
     <label>Página escaneada</label>
@@ -163,6 +179,12 @@ def render_item(linha: dict, restantes: int, total: int) -> str:
       <label for="autor">Autor (vereador que assina)</label>
       <select id="autor" name="autor_id">{''.join(opcoes)}</select>
       <div class="ajuda referencia">{escape(referencia_autor)}</div>
+
+      <label style="display:flex; align-items:center; gap:8px; font-weight:normal; margin-top:22px;">
+        <input type="checkbox" name="confirmar" value="sim" style="width:18px; height:18px;"{marcado}>
+        Já conferi a página: o número e as páginas estão corretos assim mesmo
+      </label>
+      <div class="ajuda">Marque isto quando o aviso for só sobre número deduzido ou página única — não substitui preencher ementa/autor se algum deles ainda estiver faltando.</div>
 
       <div class="botoes">
         <button type="submit" class="salvar">Salvar e continuar</button>
@@ -246,6 +268,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if urlparse(self.path).path == "/salvar":
             ementa = campos.get("ementa", [""])[0].strip()
             autor_id = campos.get("autor_id", [""])[0].strip()
+            # Checkbox HTML so manda o campo quando marcado - a ausencia dele
+            # no POST significa desmarcado, entao limpa a coluna nesse caso
+            # (senao uma vez marcado ficaria marcado para sempre).
+            confirmar = "sim" if campos.get("confirmar", [""])[0].strip() else ""
             linhas = ler_linhas()
             for linha in linhas:
                 if linha["numero"] == numero and linha["ano"] == ano:
@@ -253,6 +279,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         linha["EMENTA_MANUAL"] = ementa
                     if autor_id:
                         linha["AUTOR_ID_MANUAL"] = autor_id
+                    linha["CONFIRMAR"] = confirmar
                     break
             escrever_linhas(linhas)
 

@@ -118,7 +118,52 @@ if ($ollama) {
     Write-Host "  Para instalar depois: winget install Ollama.Ollama"
 }
 
-# --- 5. Verificacao -------------------------------------------------------
+# --- 5. Tesseract OCR (OPCIONAL) -------------------------------------------
+# So entra em acao para paginas escaneadas SEM camada de texto nenhuma (raro -
+# a maioria dos lotes ja vem com OCR embutido). Sem o Tesseract, essas
+# paginas raras simplesmente vao para revisao manual em vez de serem lidas -
+# mais lento para voce, mas nao quebra nada.
+$tesseract = (Get-Command tesseract -ErrorAction SilentlyContinue).Source
+foreach ($t in @("$env:ProgramFiles\Tesseract-OCR\tesseract.exe",
+                 "${env:ProgramFiles(x86)}\Tesseract-OCR\tesseract.exe")) {
+    if (-not $tesseract -and (Test-Path $t)) { $tesseract = $t }
+}
+
+if (-not $tesseract) {
+    Write-Host "`nInstalando Tesseract OCR (opcional, ~80 MB)..." -ForegroundColor Yellow
+    winget install --id UB-Mannheim.TesseractOCR -e --source winget `
+        --accept-source-agreements --accept-package-agreements --disable-interactivity
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  nao instalou automaticamente - sem problema, e opcional." -ForegroundColor Yellow
+        Write-Host "  Para instalar depois: winget install UB-Mannheim.TesseractOCR"
+    } elseif (Test-Path "$env:ProgramFiles\Tesseract-OCR\tesseract.exe") {
+        $tesseract = "$env:ProgramFiles\Tesseract-OCR\tesseract.exe"
+    }
+}
+
+if ($tesseract) {
+    Write-Host "Tesseract: $tesseract"
+    $tessdata = "$raiz\tessdata"
+    New-Item -ItemType Directory -Force $tessdata | Out-Null
+    $por = "$tessdata\por.traineddata"
+    if (-not (Test-Path $por)) {
+        Write-Host "Baixando pacote de portugues (~2 MB)..."
+        try {
+            Invoke-WebRequest -UseBasicParsing `
+                -Uri "https://github.com/tesseract-ocr/tessdata_fast/raw/main/por.traineddata" `
+                -OutFile $por
+            Write-Host "  pacote de portugues pronto."
+        } catch {
+            Write-Host "  FALHOU ao baixar o pacote de portugues: $_" -ForegroundColor Yellow
+            Write-Host "  Baixe manualmente em https://github.com/tesseract-ocr/tessdata_fast"
+            Write-Host "  e salve em $por"
+        }
+    } else {
+        Write-Host "Pacote de portugues ja presente."
+    }
+}
+
+# --- 6. Verificacao -------------------------------------------------------
 Write-Host "`nVerificando..."
 & $vpy -c "import pypdf, pdfplumber, pypdfium2, PIL, rapidfuzz, requests, playwright; print('  bibliotecas ok')"
 Confirmar "importar as bibliotecas"

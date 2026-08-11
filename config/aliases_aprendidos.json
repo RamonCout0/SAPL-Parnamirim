@@ -1,7 +1,27 @@
 {
+ "eder rodrigues queiroz": {
+  "confirmado_em": "292/2023",
+  "id": 12,
+  "nome": "Eder Queiroz"
+ },
+ "eder rodriques queiroz": {
+  "confirmado_em": "295/2023",
+  "id": 12,
+  "nome": "Eder Queiroz"
+ },
  "edev rodrigues queiroz": {
   "confirmado_em": "298/2023",
   "id": 12,
   "nome": "Eder Queiroz"
+ },
+ "gabriel cesar de oliveira siqueira": {
+  "confirmado_em": "265/2023",
+  "id": 14,
+  "nome": "Gabriel César"
+ },
+ "irani guedes": {
+  "confirmado_em": "238/2023",
+  "id": 17,
+  "nome": "Irani Guedes"
  }
 }

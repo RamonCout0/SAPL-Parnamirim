@@ -23,10 +23,17 @@ from pathlib import Path
 import pypdfium2 as pdfium
 
 # Colunas que VOCE preenche. O resto e informativo.
-COLUNAS_MANUAIS = ["EMENTA_MANUAL", "AUTOR_ID_MANUAL"]
+#
+# CONFIRMAR existe para os motivos que NAO tem nada para digitar: "numero
+# deduzido pela sequencia" ou "bloco com 1 pagina" nao sao erro de ementa nem
+# de autor - sao avisos estruturais. Preencher EMENTA_MANUAL/AUTOR_ID_MANUAL
+# nesses casos nao adianta nada, porque o motivo que esta bloqueando e outro.
+# Escreva "sim" em CONFIRMAR para dizer "eu vi a pagina, esta tudo certo assim
+# mesmo".
+COLUNAS_MANUAIS = ["EMENTA_MANUAL", "AUTOR_ID_MANUAL", "CONFIRMAR"]
 
-# Ordem pensada para quem abre o CSV bruto (nao no Excel): as duas colunas que
-# voce de fato edita ficam logo no comeco da linha, antes dos textos longos
+# Ordem pensada para quem abre o CSV bruto (nao no Excel): as colunas que voce
+# de fato edita ficam logo no comeco da linha, antes dos textos longos
 # (ementa lida, sugestao do modelo) que empurrariam tudo para fora da tela.
 CABECALHO_GLOSSARIO = [
     "numero",
@@ -34,6 +41,7 @@ CABECALHO_GLOSSARIO = [
     "paginas",
     "EMENTA_MANUAL",
     "AUTOR_ID_MANUAL",
+    "CONFIRMAR",
     "motivo",
     "autor_lido_pela_maquina",
     "sugestao_ollama_autor",
@@ -134,7 +142,8 @@ def ler_glossario(caminho: Path) -> dict[str, dict]:
                 continue
             ementa = (linha.get("EMENTA_MANUAL") or "").strip()
             autor = (linha.get("AUTOR_ID_MANUAL") or "").strip()
-            if not ementa and not autor:
+            confirmar = (linha.get("CONFIRMAR") or "").strip()
+            if not ementa and not autor and not confirmar:
                 continue
             item: dict = {}
             if ementa:
@@ -144,6 +153,8 @@ def ler_glossario(caminho: Path) -> dict[str, dict]:
                     item["autor_id"] = int(autor)
                 except ValueError:
                     item["autor_id_invalido"] = autor
+            if confirmar:
+                item["confirmado"] = True
             preenchidos[f"{numero}/{ano}"] = item
     return preenchidos
 

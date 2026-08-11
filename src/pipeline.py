@@ -73,6 +73,9 @@ class Indicacao:
     qtd_paginas: int
     arquivo_origem: str = ""   # o PDF grande, em input/, de onde ela veio
     arquivo_pdf: str = ""      # o PDF fatiado, em output/pdfs/
+    usou_ocr: bool = False     # alguma pagina nao tinha OCR embutido -
+                                # o texto dela veio do Tesseract (informativo;
+                                # nao muda sozinho o criterio de aprovacao)
 
     # campos do formulario do SAPL
     tipo_materia_id: int = 6
@@ -93,6 +96,12 @@ class Indicacao:
     ementa_metodo: str = ""
     confianca: float = 0.0
     numero_inferido: bool = False
+    # Marcado quando voce escreve "sim" na coluna CONFIRMAR do glossario -
+    # diz "eu vi a pagina, esta tudo certo assim mesmo". Existe porque
+    # "numero deduzido" e "1 pagina" nao tem ementa/autor para corrigir: sem
+    # isso, essas duas ficariam pedindo revisao para sempre, mesmo depois de
+    # voce conferir a imagem.
+    confirmado_manual: bool = False
 
     # Palpites do Ollama. NAO entram no formulario: existem so para aparecer no
     # glossario e acelerar a conferencia humana contra o PNG da pagina.
@@ -229,6 +238,7 @@ def _extrair_um_pdf(
     ainda - isso e feito uma vez so, depois de juntar todos os arquivos."""
     paginas = extrair_paginas(caminho_pdf, mostrar_progresso=True)
     mapa = {p.numero: p.texto for p in paginas}
+    via_ocr = {p.numero for p in paginas if p.via_ocr}
     print(f"  {len(paginas)} paginas")
 
     inicios, citacoes = classificar_paginas(paginas)
@@ -248,6 +258,7 @@ def _extrair_um_pdf(
             numero_inferido=b.numero_inferido,
             avisos_bloco=list(b.avisos),
             arquivo_origem=caminho_pdf,
+            usou_ocr=any(n in via_ocr for n in range(b.pagina_inicial, b.pagina_final + 1)),
         )
 
         res_ementa = extrair_ementa(texto)
@@ -332,6 +343,8 @@ def _aplicar_correcoes_manuais(
             ind.motivos.append(
                 f"autor: AUTOR_ID_MANUAL '{manual['autor_id_invalido']}' nao e numero"
             )
+        if manual.get("confirmado"):
+            ind.confirmado_manual = True
 
     if aprendidos:
         print(f"aprendeu {len(aprendidos)} nome(s) civil(is) do glossario:")
@@ -356,9 +369,11 @@ def _classificar(ind: Indicacao) -> None:
     if not ind.autor_id:
         if not any(m.startswith("autor:") for m in motivos):
             motivos.append("autor nao identificado")
-    if ind.numero_inferido:
+    # Estes dois nao tem campo de ementa/autor para corrigir - so o CONFIRMAR
+    # do glossario (ind.confirmado_manual) resolve.
+    if ind.numero_inferido and not ind.confirmado_manual:
         motivos.append("numero deduzido pela sequencia - confirmar no papel")
-    if ind.qtd_paginas == 1:
+    if ind.qtd_paginas == 1 and not ind.confirmado_manual:
         motivos.append("bloco com 1 pagina - verso ausente no scan")
 
     ind.motivos = motivos
@@ -400,7 +415,7 @@ def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict)
         "tipo_materia_id", "ano_sapl", "numero_sapl",
         "tipo_autor_id", "autor_id", "autor_nome_sapl", "regime_id",
         "tipo_apresentacao", "ementa", "autor_no_documento", "autor_origem",
-        "autor_escore", "verbo", "ementa_metodo", "confianca", "motivos",
+        "autor_escore", "verbo", "ementa_metodo", "confianca", "usou_ocr", "motivos",
     ]
     with open(OUTPUT_DIR / "indicacoes.csv", "w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f, delimiter=";")
@@ -415,7 +430,8 @@ def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict)
                 i.tipo_autor_id, i.autor_id, i.autor_nome_sapl, i.regime_id,
                 i.tipo_apresentacao, i.ementa, i.autor_no_documento,
                 i.autor_origem, i.autor_escore,
-                i.verbo, i.ementa_metodo, i.confianca, " | ".join(i.motivos),
+                i.verbo, i.ementa_metodo, i.confianca,
+                "sim" if i.usou_ocr else "não", " | ".join(i.motivos),
             ])
 
     # Markdown por indicacao, para leitura humana rapida.
@@ -431,6 +447,7 @@ def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict)
                 f"- **Autor no SAPL:** {ind.autor_nome_sapl or '—'} (id {ind.autor_id})",
                 f"- **Verbo:** {ind.verbo or '—'}",
                 f"- **Confiança:** {ind.confianca}",
+                f"- **Texto veio de OCR local (Tesseract):** {'sim' if ind.usou_ocr else 'não'}",
                 "",
                 "## Ementa",
                 "",
@@ -499,6 +516,7 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
             ),
             "sugestao_ollama_autor": ind.sugestao_autor_ollama,
             "AUTOR_ID_MANUAL": "",
+            "CONFIRMAR": "",
         })
 
     # Nao sobrescreve um glossario que voce ja comecou a preencher.

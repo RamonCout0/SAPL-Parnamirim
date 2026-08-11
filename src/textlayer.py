@@ -1,8 +1,10 @@
 """Etapa 1: PDF -> texto por pagina -> Markdown.
 
-O PDF de entrada e um scan produzido pelo OmniPage CSDK 21, que ja embutiu
-uma camada de texto OCR. Nao precisamos de Tesseract: basta extrair essa
-camada e limpar o ruido do papel timbrado.
+A maioria dos PDFs de entrada ja vem de um scan com OCR embutido (o lote
+original passou pelo OmniPage CSDK 21) - nesse caso so extraimos o texto que
+ja esta la. Mas nem todo PDF vem assim: paginas escaneadas sem OCR nenhum
+tem texto vazio ou quase vazio. Para essas, ocr.py entra como reserva,
+rodando Tesseract localmente so naquela pagina especifica.
 """
 from __future__ import annotations
 
@@ -11,7 +13,14 @@ from dataclasses import dataclass, field
 
 from pypdf import PdfReader
 
+from . import ocr
 from .config import RUIDO_LINHAS
+
+# Abaixo disso o texto embutido no PDF e considerado "sem OCR nenhum" - nao
+# confundir com paginas de verso legitimas (carimbo "Lido na Sessão"), que
+# normalmente tem uns 50-200 caracteres mesmo sendo curtas. Um valor bem baixo
+# aqui pega so o caso realmente vazio.
+LIMIAR_SEM_OCR = 15
 
 
 @dataclass
@@ -20,6 +29,7 @@ class Pagina:
     texto_bruto: str
     texto: str = ""  # limpo
     linhas: list[str] = field(default_factory=list)
+    via_ocr: bool = False  # True se o texto veio do Tesseract, nao do PDF
 
     @property
     def densidade(self) -> int:
@@ -71,8 +81,24 @@ def extrair_paginas(caminho_pdf: str, mostrar_progresso: bool = False) -> list[P
         barra = Progresso(total, prefixo="  lendo paginas ")
 
     paginas = []
+    sem_ocr: list[int] = []
+    ocr_recuperou = 0
     for i, pg in enumerate(leitor.pages, start=1):
         bruto = pg.extract_text() or ""
+        via_ocr = False
+
+        if len(bruto.strip()) < LIMIAR_SEM_OCR:
+            sem_ocr.append(i)
+            texto_ocr = ocr.ocr_pagina(caminho_pdf, i)
+            if len(texto_ocr.strip()) > len(bruto.strip()):
+                bruto = texto_ocr
+                via_ocr = True
+                ocr_recuperou += 1
+            # Se o OCR tambem nao achou nada (ou o Tesseract nao esta
+            # instalado), a pagina segue com o texto vazio que ja tinha - o
+            # resto do pipeline (deteccao de inicio + confianca da ementa)
+            # ja manda isso para revisao manual sozinho.
+
         limpo = _limpar(bruto)
         if barra:
             barra.avancar()
@@ -82,8 +108,23 @@ def extrair_paginas(caminho_pdf: str, mostrar_progresso: bool = False) -> list[P
                 texto_bruto=bruto,
                 texto=limpo,
                 linhas=[l for l in limpo.splitlines() if l.strip()],
+                via_ocr=via_ocr,
             )
         )
+
+    if sem_ocr:
+        if ocr.disponivel():
+            print(
+                f"  {len(sem_ocr)} pagina(s) sem OCR embutido - "
+                f"Tesseract recuperou texto em {ocr_recuperou}"
+            )
+        else:
+            print(
+                f"  AVISO: {len(sem_ocr)} pagina(s) sem OCR embutido e o "
+                f"Tesseract nao esta disponivel ({ocr.motivo_indisponivel()}) - "
+                "essas paginas vao para revisao manual"
+            )
+
     return paginas
 
 
