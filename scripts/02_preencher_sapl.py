@@ -4,14 +4,25 @@ O script preenche e PARA. Ele nunca salva. Voce faz as duas coisas que ficaram
 para a mao - anexar o PDF de output/pdfs/ e escrever a data de apresentacao -
 confere a tela e clica em salvar.
 
+O campo "Autor" do SAPL costuma so liberar as opcoes DEPOIS que a data e
+preenchida (filtra por quem estava no mandato naquela data). Como a data e
+sempre manual, isso aparece como um aviso "atenção: autor não pré-
+selecionado", nao como falha - depois de preencher a data, so selecionar o
+autor certo manualmente (o aviso ja diz qual).
+
     python scripts\\02_preencher_sapl.py --inspecionar     lista os campos reais
     python scripts\\02_preencher_sapl.py                   percorre as prontas
     python scripts\\02_preencher_sapl.py --numero 300      so a 300
     python scripts\\02_preencher_sapl.py --de 300 --ate 290
+    python scripts\\02_preencher_sapl.py --ano 2022        so o lote de 2022
 
-Sem nenhuma dessas opcoes, o script PERGUNTA de qual numero comecar (ENTER
-para comecar do topo) - assim, se parou na 256 numa sessao anterior, nao
-precisa apertar ENTER em tudo de novo desde a 300, so digita 256.
+Sem "--ano", o script PERGUNTA qual ano trabalhar - mas so quando ha mais de
+um ano misturado nas prontas (um lote so nao incomoda com a pergunta).
+
+Sem "--numero"/"--de"/"--ate", o script tambem PERGUNTA de qual numero
+comecar (ENTER para comecar do topo) - assim, se parou na 256 numa sessao
+anterior, nao precisa apertar ENTER em tudo de novo desde a 300, so digita
+256.
 
 Se a janela travar ou fechar no meio (trocar de tela, minimizar por muito
 tempo etc.), o script nao derruba a sessao inteira: avisa o erro e pergunta
@@ -150,10 +161,15 @@ def inspecionar(pagina) -> None:
     print("\nAjuste config\\sapl_form.json com os ids/names que aparecem acima.")
 
 
-def preencher(pagina, form: dict, ind: dict) -> list[str]:
-    """Preenche os campos automaticos. Retorna a lista de falhas."""
+def preencher(pagina, form: dict, ind: dict) -> tuple[list[str], list[str]]:
+    """Preenche os campos automaticos. Retorna (falhas, notas).
+
+    falhas: problema de configuracao de verdade - vale rodar --inspecionar.
+    notas: esperado, precisa de atencao manual, mas NAO e bug de config.
+    """
     campos = form["campos"]
     falhas = []
+    notas = []
 
     # "numero" fica por ULTIMO de proposito. O formulario do SAPL sugere
     # automaticamente o "proximo numero disponivel" assim que tipo_materia e
@@ -189,7 +205,20 @@ def preencher(pagina, form: dict, ind: dict) -> list[str]:
         else:
             ok = definir_texto(alvo, valor)
         if not ok:
-            falhas.append(f"{nome}: nao aceitou o valor {valor!r}")
+            if nome == "autor":
+                # O SAPL so libera as opcoes do select "Autor" DEPOIS que a
+                # data e preenchida (filtra por quem estava no mandato
+                # naquela data) - e a data e sempre manual (voce quem
+                # escreve). Entao isto e esperado toda vez que a data ainda
+                # nao foi preenchida, nao e problema de configuracao: nao
+                # adianta rodar --inspecionar para "consertar".
+                notas.append(
+                    f"autor não pré-selecionado (o SAPL só libera essa lista "
+                    f"depois que a data é preenchida) — escolha manualmente: "
+                    f"{ind['autor_nome_sapl']} (id {ind['autor_id']})"
+                )
+            else:
+                falhas.append(f"{nome}: nao aceitou o valor {valor!r}")
 
         # Depois de tipo_materia/ano, a sugestao automatica do SAPL pode
         # demorar um instante para chegar e reescrever o campo numero. Espera
@@ -210,7 +239,39 @@ def preencher(pagina, form: dict, ind: dict) -> list[str]:
                 "(o SAPL deve ter sugerido outro numero depois do preenchimento - confira antes de salvar)"
             )
 
-    return falhas
+    return falhas, notas
+
+
+def _pedir_ano(itens: list[dict], args: list[str]) -> list[dict]:
+    """Filtra por ano. "--ano AAAA" na linha de comando decide direto; sem
+    isso, so pergunta se houver mais de um ano misturado entre as prontas -
+    nao incomoda quando o lote e so de um ano."""
+    if "--ano" in args:
+        ano = int(args[args.index("--ano") + 1])
+        return [i for i in itens if i["ano"] == ano]
+
+    anos = sorted({i["ano"] for i in itens}, reverse=True)
+    if len(anos) <= 1:
+        return itens
+
+    print("\nMais de um ano entre as prontas:")
+    for a in anos:
+        qtd = sum(1 for i in itens if i["ano"] == a)
+        print(f"  {a}: {qtd}")
+    resposta = input("Qual ano? (ENTER para todos): ").strip()
+    if not resposta:
+        return itens
+    try:
+        ano = int(resposta)
+    except ValueError:
+        print(f"  '{resposta}' não é um ano válido - mostrando todos.")
+        return itens
+
+    filtrado = [i for i in itens if i["ano"] == ano]
+    if not filtrado:
+        print(f"  nenhuma pronta de {ano} - mostrando todos.")
+        return itens
+    return filtrado
 
 
 def _pedir_numero_inicial(prontas: list[dict]) -> list[dict]:
@@ -246,6 +307,10 @@ def main() -> int:
 
     dados = json.loads((OUTPUT_DIR / "indicacoes.json").read_text(encoding="utf-8"))
     prontas = [i for i in dados["indicacoes"] if i["status"] == "pronto"]
+    so_inspecionar = "--inspecionar" in args
+
+    if prontas and not so_inspecionar:
+        prontas = _pedir_ano(prontas, args)
 
     filtro_por_cli = "--numero" in args or "--de" in args or "--ate" in args
     if "--numero" in args:
@@ -258,7 +323,6 @@ def main() -> int:
         ate = int(args[args.index("--ate") + 1])
         prontas = [i for i in prontas if i["numero"] >= ate]
 
-    so_inspecionar = "--inspecionar" in args
     if not prontas and not so_inspecionar:
         print("Nenhuma indicacao com status 'pronto'. Rode 01_extrair.py primeiro.")
         return 1
@@ -323,7 +387,7 @@ def main() -> int:
             try:
                 pagina = _pagina_valida(nav, pagina)
                 pagina.goto(url_form, wait_until="domcontentloaded")
-                falhas = preencher(pagina, form, ind)
+                falhas, notas = preencher(pagina, form, ind)
             except PlaywrightError as e:
                 # A janela pode ter sido fechada, travado, ou ficado tempo
                 # demais em segundo plano - isto evita que a sessao inteira
@@ -349,6 +413,9 @@ def main() -> int:
             print(f"  ementa: {ind['ementa'][:150]}...")
             print(f"  anexar: output\\pdfs\\{ind['numero']}-{ind['ano']}.pdf")
             print("  falta : data de apresentação + texto original")
+            if notas:
+                for nota in notas:
+                    print(f"  atenção: {nota}")
             if falhas:
                 print("  FALHAS AO PREENCHER:")
                 for f in falhas:

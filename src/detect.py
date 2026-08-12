@@ -59,6 +59,15 @@ MARCADORES_INICIO = [
     "casa legislativa",
 ]
 
+# Em paginas de abertura real, esses marcadores aparecem bem cedo (medido:
+# 108-214 caracteres). "casa legislativa" sozinho e perigoso porque tambem
+# aparece em frases do CORPO da justificativa - "para que esta Casa
+# Legislativa dê início ao debate..." - bem mais tarde no texto (medido: 374).
+# Isso fez uma pagina de CONTINUACAO (justificativa + assinatura, sem verbo
+# de abertura nenhum) ser lida como inicio de uma indicacao nova. Por isso o
+# marcador so conta se aparecer perto do topo da pagina.
+JANELA_MARCADOR_INICIO = 280
+
 # Paginas de verso: a folha com o carimbo "Lido na Sessão" e a data.
 MARCADORES_VERSO = [
     "lido na sess",
@@ -113,6 +122,13 @@ def _tem(texto: str, marcadores: list[str]) -> bool:
     return any(m in baixo for m in marcadores)
 
 
+def _tem_estrutura_de_abertura(texto: str) -> bool:
+    """MARCADORES_INICIO, mas so contam perto do topo da pagina - ver
+    JANELA_MARCADOR_INICIO para o caso real que motivou isto."""
+    baixo = texto[:JANELA_MARCADOR_INICIO].lower()
+    return any(m in baixo for m in MARCADORES_INICIO)
+
+
 def classificar_paginas(
     paginas: list[Pagina],
 ) -> tuple[list[Inicio], list[dict]]:
@@ -154,7 +170,7 @@ def classificar_paginas(
                 }
             )
 
-        estrutura = _tem(p.texto, MARCADORES_INICIO)
+        estrutura = _tem_estrutura_de_abertura(p.texto)
         verso = _tem(p.texto, MARCADORES_VERSO) and p.densidade < DENSIDADE_MINIMA_INICIO
         anexo_no_topo = any(k in p.texto[:200].lower() for k in MARCADORES_ANEXO)
 

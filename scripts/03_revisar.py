@@ -1,12 +1,16 @@
 """Formulario no navegador para a revisao manual - sem precisar editar CSV.
 
     python scripts\\03_revisar.py
+    python scripts\\03_revisar.py --ano 2022    so o lote de 2022
 
 Abre sozinho no seu navegador. Para cada indicacao pendente, mostra a pagina
 escaneada ao lado de uma caixa de texto (ementa) e uma lista com o nome dos
 vereadores (autor). Clicar em "Salvar e continuar" grava direto no
 glossario.csv e ja mostra a proxima - sem abrir Excel, sem editar coluna
 nenhuma.
+
+Sem "--ano", pergunta qual ano revisar quando ha mais de um misturado nas
+pendentes (um lote so nao incomoda com a pergunta).
 
 Quando acabar as pendentes, ele avisa e para sozinho. Depois e so rodar
 01_extrair.py de novo para essas indicacoes virarem "pronto".
@@ -31,6 +35,10 @@ from src.revisao import CABECALHO_GLOSSARIO
 
 IMAGENS_DIR = REVISAO_DIR / "imagens"
 PORTA_PREFERIDA = 8765
+
+# Definido em main() antes de abrir o servidor - filtra a fila para um unico
+# ano, quando ha mais de um misturado nas pendentes. None = mostra todos.
+FILTRO_ANO: int | None = None
 
 
 def ler_linhas() -> list[dict]:
@@ -254,6 +262,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         linhas = ler_linhas()
         pendentes = [l for l in linhas if not ja_revisada(l)]
+        if FILTRO_ANO is not None:
+            pendentes = [l for l in pendentes if l.get("ano") == str(FILTRO_ANO)]
         if not pendentes:
             self._html(render_fim())
             return
@@ -298,11 +308,41 @@ def escolher_porta() -> int:
     raise RuntimeError("nao consegui abrir nenhuma porta local")
 
 
+def _pedir_ano(linhas: list[dict]) -> int | None:
+    """Pergunta qual ano revisar, so quando ha mais de um misturado nas
+    pendentes - um lote so nao incomoda com a pergunta. Aceita "--ano AAAA"
+    na linha de comando para pular a pergunta."""
+    args = sys.argv[1:]
+    if "--ano" in args:
+        return int(args[args.index("--ano") + 1])
+
+    pendentes = [l for l in linhas if not ja_revisada(l)]
+    anos = sorted({l.get("ano") for l in pendentes if l.get("ano")}, reverse=True)
+    if len(anos) <= 1:
+        return None
+
+    print("\nMais de um ano entre as pendentes:")
+    for a in anos:
+        qtd = sum(1 for l in pendentes if l.get("ano") == a)
+        print(f"  {a}: {qtd}")
+    resposta = input("Qual ano revisar? (ENTER para todos): ").strip()
+    if not resposta:
+        return None
+    try:
+        return int(resposta)
+    except ValueError:
+        print(f"  '{resposta}' não é um ano válido - mostrando todos.")
+        return None
+
+
 def main() -> int:
+    global FILTRO_ANO
     linhas = ler_linhas()
     if not linhas:
         print("Nenhuma indicacao pendente de revisao. Rode 01_extrair.py primeiro.")
         return 0
+
+    FILTRO_ANO = _pedir_ano(linhas)
 
     porta = escolher_porta()
     with socketserver.TCPServer(("127.0.0.1", porta), Handler) as servidor:

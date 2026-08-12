@@ -94,10 +94,28 @@ duvidoso — antes de gerar qualquer coisa.
 ```
 
 Sem argumento nenhum: processa **tudo** que estiver em `input/`. **A cada
-execução, `output/` é reconstruído do zero** a partir do que estiver em
-`input/` naquele momento — se você tirar um PDF de lá, as indicações dele
-somem do output na rodada seguinte. As correções que você já fez no glossário
-não se perdem: isso é preservado entre execuções.
+execução, `output/` é atualizado a partir do que estiver em `input/` naquele
+momento** — se você tirar um PDF de lá, as indicações dele somem do output na
+rodada seguinte. As correções que você já fez no glossário não se perdem:
+isso é preservado entre execuções.
+
+`output/pdfs/` tem uma regra especial: **se você apagou o PDF de uma
+indicação depois de anexá-la no SAPL, ele não volta.** O sistema guarda um
+registro (`output/pdfs_gerados.json`) de tudo que já foi fatiado alguma vez;
+se o arquivo sumiu mas o registro mostra que ele já existiu, entende como "já
+processei essa" e não recria. Só é gerado de novo um PDF genuinamente novo
+(indicação que nunca teve arquivo). Quando a indicação inteira some de
+`input/` (você tirou o PDF de origem), o arquivo órfão é sempre removido,
+apagado por você ou não — apagar o PDF de uma indicação vira, na prática, o
+seu jeito de marcar "já enviei ao SAPL".
+
+`output/cache_autores.json` (nomes já resolvidos, para não recalcular toda
+hora) se ajusta sozinho do mesmo jeito: a cada rodada, uma entrada que não
+pertence a nenhuma indicação do lote atual é removida — assim ele nunca fica
+pesado com nomes de PDFs que já saíram de `input/`. Isso é só performance,
+nunca corretude: se um PDF voltar depois, o nome é resolvido de novo do zero,
+sem risco de erro. Diferente do `aliases_aprendidos.json`, que é para
+sempre.
 
 Gera em `output/`:
 
@@ -192,7 +210,17 @@ Se algum campo não for encontrado, descubra os ids reais da página:
 
 e ajuste `config/sapl_form.json`.
 
-Outros modos: `--numero 300` · `--de 300 --ate 290`
+Outros modos: `--numero 300` · `--de 300 --ate 290` · `--ano 2022`. Sem
+nenhum desses, o script pergunta o ano (só quando há mais de um misturado) e
+de qual número começar — útil para retomar de onde parou sem apertar ENTER
+em tudo de novo.
+
+**O campo "Autor" costuma não aceitar valor antes da data.** O SAPL só libera
+as opções desse select depois que a data de apresentação é preenchida (filtra
+pelo mandato vigente naquela data) — como a data é sempre manual, isso
+aparece como `atenção: autor não pré-selecionado`, já dizendo qual autor
+escolher à mão. Não é falha de configuração; não precisa rodar
+`--inspecionar` por causa disso.
 
 ---
 

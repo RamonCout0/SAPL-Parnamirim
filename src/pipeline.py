@@ -58,6 +58,12 @@ CONFIANCA_MIN = 0.6
 REVISAO_DIR = OUTPUT_DIR / "revisao_manual"
 GLOSSARIO = REVISAO_DIR / "glossario.csv"
 
+# Registro de quais indicacoes ja tiveram o PDF fatiado gerado alguma vez.
+# Existe porque "o arquivo nao existe" e ambiguo: pode ser que nunca foi
+# gerado, ou pode ser que voce apagou de proposito depois de anexar no SAPL -
+# so esse registro permite distinguir os dois casos e nao recriar o segundo.
+PDFS_GERADOS = OUTPUT_DIR / "pdfs_gerados.json"
+
 # Um nome de arquivo terminando em "@AAAA.pdf" (o padrao que voce ja usa,
 # tipo "..._300_A_201@2023.pdf") define o ano so daquele arquivo, sem precisar
 # passar --ano toda vez. Sem isso no nome, vale o --ano do comando (ou 2023).
@@ -133,16 +139,42 @@ def _ano_do_nome_arquivo(caminho: Path) -> int | None:
 def processar_pasta(
     pasta_input: str | Path = INPUT_DIR,
     ano_padrao: int = 2023,
+    ano_forcado: bool = False,
     usar_ollama: bool = True,
     gerar_pdfs: bool = True,
 ) -> list[Indicacao]:
-    """Processa TODOS os PDFs de uma pasta e combina num unico resultado."""
+    """Processa TODOS os PDFs de uma pasta e combina num unico resultado.
+
+    ano_forcado=True (equivale a passar --ano no comando) faz ano_padrao
+    valer para TODOS os arquivos, mesmo os que tem "@AAAA" no nome - um
+    comando explicito tem que vencer uma inferencia automatica, nunca o
+    contrario."""
     garantir_dirs()
     ids = carregar_ids()
     pasta_input = Path(pasta_input)
 
     # Aceita tanto uma pasta (o uso normal: processa tudo que tiver dentro)
     # quanto o caminho de um unico PDF (util para testar so um arquivo).
+    #
+    # ACIDENTE REAL que motivou o proximo "if": um bug na leitura dos
+    # argumentos de linha de comando fez "--ano 2021" ser lido como se "2021"
+    # fosse o CAMINHO da pasta de entrada. "2021" nao existe no disco, e
+    # pasta_input.glob("*.pdf") numa pasta inexistente nao da erro nenhum -
+    # so devolve vazio, IDENTICO a uma pasta vazia de verdade. O codigo la
+    # embaixo tratou os dois casos do mesmo jeito e apagou 100 PDFs reais
+    # (e o indicacoes.json inteiro) porque achou que o lote tinha sumido.
+    #
+    # A distincao que evita isso: pasta que EXISTE e esta vazia por engano
+    # do usuario (voce apagou o PDF de input\) e uma coisa legitima - o
+    # output deve mesmo refletir "nada". Caminho que NAO EXISTE e um erro de
+    # digitacao ou de parsing - nunca deve ser tratado como "pasta vazia".
+    if not pasta_input.exists():
+        raise FileNotFoundError(
+            f"{pasta_input} nao existe (nem arquivo, nem pasta). "
+            "Isto e um erro de caminho, nao uma pasta vazia - nada foi "
+            "apagado no output."
+        )
+
     if pasta_input.is_file():
         pdfs = [pasta_input]
     else:
@@ -168,22 +200,23 @@ def processar_pasta(
 
     resolvedor = ResolvedorAutor(ids, usar_ollama=usar_ollama)
 
-    # As saidas DERIVADAS (pdfs fatiados, markdown por indicacao) sao
-    # reconstruidas do zero a cada execucao - e o que garante que, se voce
-    # tirar um PDF de input/, as indicacoes dele somem do output tambem em vez
-    # de ficar "fantasma" de uma rodada anterior. glossario.csv e
-    # aliases_aprendidos.json NAO entram aqui: sao preservados de proposito.
-    for pasta in (PDFS_DIR, MARKDOWN_DIR):
-        if pasta.exists():
-            shutil.rmtree(pasta)
-        pasta.mkdir(parents=True, exist_ok=True)
+    # O markdown e reconstruido do zero a cada execucao - e so leitura, sem
+    # custo regenerar. Os PDFs fatiados (output/pdfs/) NAO: voce apaga cada
+    # um deles a mao conforme anexa no SAPL, como forma de marcar "ja fiz
+    # essa" - se recriassemos tudo aqui, essa marcacao se perderia toda vez
+    # que voce rodasse o pipeline de novo. A limpeza deles e seletiva, feita
+    # mais abaixo, depois que sabemos quais indicacoes ainda existem.
+    if MARKDOWN_DIR.exists():
+        shutil.rmtree(MARKDOWN_DIR)
+    MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
+    PDFS_DIR.mkdir(parents=True, exist_ok=True)
 
     todas: list[Indicacao] = []
     citacoes_todas: list[dict] = []
     origem_de: dict[tuple[int, int], str] = {}
 
     for caminho_pdf in pdfs:
-        ano = _ano_do_nome_arquivo(caminho_pdf) or ano_padrao
+        ano = ano_padrao if ano_forcado else (_ano_do_nome_arquivo(caminho_pdf) or ano_padrao)
         print(f"\n--- {caminho_pdf.name} (ano {ano}) ---")
         indicacoes, citacoes = _extrair_um_pdf(str(caminho_pdf), ano, usar_ollama, resolvedor)
         citacoes_todas.extend(citacoes)
@@ -211,13 +244,27 @@ def processar_pasta(
     resolvedor.salvar_cache()
     resolvedor.salvar_aprendidos()
 
+    # Limpeza seletiva do output/pdfs/: some so o que nao pertence a NENHUMA
+    # indicacao atual (o PDF de origem saiu de input/) - nunca o que voce
+    # apagou a mao mas cuja indicacao ainda existe.
+    validos = {ind.nome_arquivo for ind in todas}
+    removidos = 0
+    for arquivo in PDFS_DIR.glob("*.pdf"):
+        if arquivo.name not in validos:
+            arquivo.unlink()
+            removidos += 1
+    if removidos:
+        print(f"output/pdfs: {removidos} arquivo(s) orfao(s) removido(s) (indicacao nao existe mais)")
+
     if gerar_pdfs:
-        print("Gerando um PDF por indicacao ...")
+        print("Gerando PDF das indicacoes que ainda nao tem um ...")
+        ja_gerados = _carregar_gerados()
         por_origem: dict[str, list[Indicacao]] = {}
         for ind in todas:
             por_origem.setdefault(ind.arquivo_origem, []).append(ind)
         for origem, inds in por_origem.items():
-            _fatiar_pdf(origem, inds)
+            _fatiar_pdf(origem, inds, ja_gerados)
+        _salvar_gerados(ja_gerados)
 
     print("Gravando resultados ...")
     _gravar_saidas(todas, citacoes_todas, ids)
@@ -380,17 +427,44 @@ def _classificar(ind: Indicacao) -> None:
     ind.status = "pronto" if not motivos else "revisao"
 
 
-def _fatiar_pdf(caminho_pdf: str, indicacoes: list[Indicacao]) -> None:
-    leitor = PdfReader(caminho_pdf)
+def _carregar_gerados() -> set[str]:
+    if PDFS_GERADOS.exists():
+        return set(json.loads(PDFS_GERADOS.read_text(encoding="utf-8")))
+    return set()
+
+
+def _salvar_gerados(chaves: set[str]) -> None:
+    PDFS_GERADOS.write_text(
+        json.dumps(sorted(chaves), ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+
+
+def _fatiar_pdf(
+    caminho_pdf: str, indicacoes: list[Indicacao], ja_gerados: set[str]
+) -> None:
+    leitor = None  # so abre o PDF grande se realmente precisar fatiar algo
     barra = Progresso(len(indicacoes), prefixo=f"  {Path(caminho_pdf).name[:30]:<30} ")
     for ind in indicacoes:
+        destino = PDFS_DIR / ind.nome_arquivo
+        if destino.exists():
+            ind.arquivo_pdf = str(destino)
+            barra.avancar()
+            continue
+        if ind.identificador in ja_gerados:
+            # Ja foi gerado antes e nao existe mais: voce apagou de
+            # proposito depois de anexar no SAPL. Nao recriar.
+            barra.avancar()
+            continue
+
+        if leitor is None:
+            leitor = PdfReader(caminho_pdf)
         escritor = PdfWriter()
         for n in range(ind.pagina_inicial, ind.pagina_final + 1):
             escritor.add_page(leitor.pages[n - 1])
-        destino = PDFS_DIR / ind.nome_arquivo
         with open(destino, "wb") as f:
             escritor.write(f)
         ind.arquivo_pdf = str(destino)
+        ja_gerados.add(ind.identificador)
         barra.avancar()
 
 

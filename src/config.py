@@ -18,6 +18,11 @@ OLLAMA_MODEL = "qwen2.5:3b-instruct"
 
 # Verbos que abrem a ementa. Ordem importa: os mais longos primeiro,
 # senao "INDICAR" seria capturado antes de "VEM INDICAR".
+#
+# INDICO/REITERO/RETIRO (primeira pessoa - "eu indico") existem porque alguns
+# vereadores escrevem assim em vez da terceira pessoa "INDICA" ("o vereador
+# indica"). Achado num caso real: bloco inteiro caiu em "verbo ilegivel"
+# porque so tinhamos a forma de terceira pessoa na lista.
 VERBOS_EMENTA = [
     "VEM INDICAR",
     "VENHO INDICAR",
@@ -26,10 +31,13 @@ VERBOS_EMENTA = [
     "VEM RETIRAR",
     "REITERAR",
     "REITERA",
+    "REITERO",
     "RETIRAR",
     "RETIRA",
+    "RETIRO",
     "INDICAR",
     "INDICA",
+    "INDICO",
 ]
 
 # Linhas de rodape / cabecalho do papel timbrado que o OCR repete em toda pagina

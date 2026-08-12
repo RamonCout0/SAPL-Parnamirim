@@ -65,6 +65,10 @@ class ResolvedorAutor:
         self.cache: dict[str, dict] = {}
         if CACHE.exists():
             self.cache = json.loads(CACHE.read_text(encoding="utf-8"))
+        # Chaves de fato consultadas nesta rodada. salvar_cache() usa isto
+        # para podar entradas de PDFs que ja nao estao mais em input/ - sem
+        # isso o cache so cresce, mesmo depois de um PDF ser removido.
+        self.chaves_vistas: set[str] = set()
 
         # chave normalizada -> registro do autor
         self.por_id = {a["id"]: a for a in ids["autores"]}
@@ -132,6 +136,7 @@ class ResolvedorAutor:
             return self._nada("nenhum nome extraido do texto")
 
         chave = _normalizar(" | ".join(consultas))
+        self.chaves_vistas.add(chave)
         if chave in self.cache:
             achado = dict(self.cache[chave])
             achado["origem"] = "cache"
@@ -258,6 +263,17 @@ class ResolvedorAutor:
         }
 
     def salvar_cache(self) -> None:
+        # Poda antes de gravar: nome que nao foi consultado nesta rodada e
+        # porque a indicacao dele nao existe mais no lote atual (o PDF saiu
+        # de input/). Cache sem uso so ocupa espaco e envelhece a toa - isto
+        # e so performance (a resolucao refaz do zero se precisar de novo),
+        # nunca corretude, entao podar e sempre seguro.
+        antes = len(self.cache)
+        self.cache = {k: v for k, v in self.cache.items() if k in self.chaves_vistas}
+        removidas = antes - len(self.cache)
+        if removidas:
+            print(f"  cache_autores.json: {removidas} entrada(s) nao usada(s) removida(s)")
+
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         CACHE.write_text(
             json.dumps(self.cache, ensure_ascii=False, indent=1), encoding="utf-8"

@@ -133,11 +133,24 @@ if (-not $tesseract) {
     Write-Host "`nInstalando Tesseract OCR (opcional, ~80 MB)..." -ForegroundColor Yellow
     winget install --id UB-Mannheim.TesseractOCR -e --source winget `
         --accept-source-agreements --accept-package-agreements --disable-interactivity
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  nao instalou automaticamente - sem problema, e opcional." -ForegroundColor Yellow
+    $codigo = $LASTEXITCODE
+
+    # O codigo de saida do winget NAO e confiavel aqui: se o pacote ja estava
+    # registrado no winget mas nosso Get-Command/caminhos de cima nao acharam
+    # o executavel (PATH desatualizado na sessao, por exemplo), o winget
+    # tenta "atualizar" em vez de instalar, nao acha versao mais nova e
+    # devolve erro - mesmo com o Tesseract funcionando perfeitamente no
+    # disco (reproduzido durante o desenvolvimento: winget devolveu erro
+    # 0x8a15002b "nenhuma atualizacao disponivel" com o programa ja
+    # instalado e funcional). Por isso sempre reconfere o arquivo, em vez de
+    # confiar so no codigo de saida.
+    foreach ($t in @("$env:ProgramFiles\Tesseract-OCR\tesseract.exe",
+                     "${env:ProgramFiles(x86)}\Tesseract-OCR\tesseract.exe")) {
+        if (-not $tesseract -and (Test-Path $t)) { $tesseract = $t }
+    }
+    if (-not $tesseract) {
+        Write-Host "  nao instalou automaticamente (codigo $codigo) - sem problema, e opcional." -ForegroundColor Yellow
         Write-Host "  Para instalar depois: winget install UB-Mannheim.TesseractOCR"
-    } elseif (Test-Path "$env:ProgramFiles\Tesseract-OCR\tesseract.exe") {
-        $tesseract = "$env:ProgramFiles\Tesseract-OCR\tesseract.exe"
     }
 }
 

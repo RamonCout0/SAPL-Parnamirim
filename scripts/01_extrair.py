@@ -34,23 +34,51 @@ from src.config import INPUT_DIR
 from src.pipeline import GLOSSARIO, processar_pasta
 
 
+def _posicionais(args: list[str]) -> list[str]:
+    """Argumentos que nao sao flag nem o VALOR de uma flag.
+
+    "--ano" consome o proximo argumento (o numero do ano) - sem pular esse
+    valor, "python 01_extrair.py --ano 2021" tratava "2021" como se fosse o
+    caminho da pasta de entrada, achava "nenhum PDF" e zerava o output de
+    verdade. Testado e corrigido.
+    """
+    flags_com_valor = {"--ano"}
+    resultado = []
+    pular = False
+    for a in args:
+        if pular:
+            pular = False
+            continue
+        if a in flags_com_valor:
+            pular = True
+            continue
+        if not a.startswith("--"):
+            resultado.append(a)
+    return resultado
+
+
 def main() -> int:
     args = sys.argv[1:]
 
-    # O primeiro argumento so conta se NAO comecar com "--" (senao e uma flag).
-    posicionais = [a for a in args if not a.startswith("--")]
-    origem = posicionais[0] if posicionais else INPUT_DIR
+    origem = _posicionais(args)[:1] or [INPUT_DIR]
+    origem = origem[0]
 
     ano = 2023
-    if "--ano" in args:
+    ano_explicito = "--ano" in args
+    if ano_explicito:
         ano = int(args[args.index("--ano") + 1])
 
-    indicacoes = processar_pasta(
-        origem,
-        ano_padrao=ano,
-        usar_ollama="--sem-ollama" not in args,
-        gerar_pdfs="--sem-pdfs" not in args,
-    )
+    try:
+        indicacoes = processar_pasta(
+            origem,
+            ano_padrao=ano,
+            ano_forcado=ano_explicito,
+            usar_ollama="--sem-ollama" not in args,
+            gerar_pdfs="--sem-pdfs" not in args,
+        )
+    except FileNotFoundError as e:
+        print(f"\nERRO: {e}")
+        return 1
     if not indicacoes:
         # Pasta vazia e um estado valido (nao um erro): o output ja foi
         # zerado dentro de processar_pasta. So avisa e sai.
