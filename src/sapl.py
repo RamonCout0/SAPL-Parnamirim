@@ -43,11 +43,28 @@ def achar(pagina, candidatos: list[str]):
     return None
 
 
-def definir_select(pagina, alvo, valor: str) -> bool:
-    """Escolhe uma opcao. Cai para JS quando o SAPL esconde o select (select2)."""
+def valor_de_select(alvo) -> str:
+    """O que o campo esta mostrando AGORA. "" se nem der para ler."""
     try:
-        alvo.select_option(value=str(valor), timeout=4000)
-        return True
+        return str(alvo.input_value())
+    except Exception:
+        return ""
+
+
+def definir_select(pagina, alvo, valor: str) -> bool:
+    """Escolhe uma opcao e CONFERE que ficou. Cai para JS quando o SAPL
+    esconde o select (select2).
+
+    A conferencia nao e zelo a toa: antes dela, o caminho do select_option
+    devolvia True sem reler o campo. Quando a pagina desfazia a escolha logo
+    depois, o programa dizia "preenchido" e o campo aparecia em branco na
+    tela, sem um unico aviso.
+    """
+    valor = str(valor)
+    try:
+        alvo.select_option(value=valor, timeout=4000)
+        if valor_de_select(alvo) == valor:
+            return True
     except Exception:
         pass
     try:
@@ -59,11 +76,30 @@ def definir_select(pagina, alvo, valor: str) -> bool:
                 el.dispatchEvent(new Event('change', {bubbles: true}));
                 if (window.jQuery) jQuery(el).trigger('change');
             }""",
-            str(valor),
+            valor,
         )
-        return alvo.input_value() == str(valor)
     except Exception:
         return False
+    return valor_de_select(alvo) == valor
+
+
+def garantir_select(pagina, alvo, valor: str, tentativas: int = 3) -> bool:
+    """Escolhe e insiste ate a escolha sobreviver.
+
+    So o select "Autor" precisa disto. O SAPL o reconstroi por JavaScript toda
+    vez que a data ou o tipo_autor mudam - e da para ver isso no HTML da
+    pagina: os separadores sao '<option>-----</option>' SEM atributo value, e
+    quem gera opcao sem value e script, nao o Django. Quando essa resposta
+    chega depois da nossa escolha, ela apaga a escolha junto. Escolher, deixar
+    a poeira baixar e conferir de novo resolve.
+    """
+    valor = str(valor)
+    for _ in range(tentativas):
+        definir_select(pagina, alvo, valor)
+        pagina.wait_for_timeout(700)
+        if valor_de_select(alvo) == valor:
+            return True
+    return False
 
 
 def definir_texto(alvo, valor: str) -> bool:
@@ -139,6 +175,9 @@ def preencher(pagina, form: dict, ind: dict) -> tuple[list[str], list[str]]:
     campos = form["campos"]
     falhas = []
     notas = []
+    # O veredito do autor sai so no fim, depois da ultima conferencia: a
+    # pagina ainda pode apagar a escolha depois que ela ja foi feita.
+    autor_ok = True
 
     # "numero" fica por ULTIMO de proposito. O formulario do SAPL sugere
     # automaticamente o "proximo numero disponivel" assim que tipo_materia e
@@ -178,6 +217,16 @@ def preencher(pagina, form: dict, ind: dict) -> tuple[list[str], list[str]]:
                 "conferência (ela está no carimbo do verso)")
             continue
 
+        if nome == "autor" and str(valor or "0").strip() == "0":
+            # Autor nao resolvido. Como "pronto" exige autor, isto nao devia
+            # chegar aqui - mas se chegar, nao adianta insistir tres vezes com
+            # um id que nao existe: avisa e segue.
+            notas.append(
+                "autor não identificado no documento - escolha à mão na tela "
+                "do SAPL")
+            autor_ok = True  # ja avisado aqui, nao repetir no fim
+            continue
+
         alvo = achar(pagina, campos.get(nome, []))
         if alvo is None:
             falhas.append(f"{nome}: campo nao encontrado na pagina")
@@ -185,22 +234,17 @@ def preencher(pagina, form: dict, ind: dict) -> tuple[list[str], list[str]]:
         # "ano" as vezes e select, as vezes input, dependendo da versao.
         marca = alvo.evaluate("e => e.tagName.toLowerCase()")
         if marca == "select":
-            ok = definir_select(pagina, alvo, valor)
+            # O autor e o unico select que a pagina reescreve sozinha depois
+            # de escolhido - so ele precisa de insistencia.
+            if nome == "autor":
+                ok = garantir_select(pagina, alvo, valor)
+            else:
+                ok = definir_select(pagina, alvo, valor)
         else:
             ok = definir_texto(alvo, valor)
         if not ok:
             if nome == "autor":
-                # Agora que a data e preenchida ANTES, o autor deveria abrir.
-                # Se mesmo assim nao aceitou, o mais provavel e que esse
-                # vereador nao estivesse no mandato naquela data - ou seja, a
-                # data ou o autor esta errado. Vale conferir os dois no papel
-                # antes de escolher a mao.
-                notas.append(
-                    f"autor não aceito: o SAPL filtra por quem estava no "
-                    f"mandato em {ind.get('data_apresentacao') or 'nesta data'} "
-                    f"— confira a data e escolha à mão: "
-                    f"{ind['autor_nome_sapl']} (id {ind['autor_id']})"
-                )
+                autor_ok = False  # o recado sai depois da ultima conferencia
             else:
                 falhas.append(f"{nome}: nao aceitou o valor {valor!r}")
 
@@ -209,10 +253,13 @@ def preencher(pagina, form: dict, ind: dict) -> tuple[list[str], list[str]]:
         # aqui em vez de so no final, para o numero (preenchido por ultimo)
         # nao ser pego por uma sugestao ainda em transito.
         #
-        # Depois da data, a espera e por outro motivo: o SAPL recarrega a
-        # lista de autores filtrando pelo mandato vigente naquela data, e
-        # escolher o autor antes disso chegar nao pega.
-        if nome in ("tipo_materia", "ano", "data_apresentacao"):
+        # Depois da data e de tipo_autor, a espera e por outro motivo: os dois
+        # fazem o SAPL remontar o select "Autor" (a data filtra por quem estava
+        # no mandato; o tipo separa parlamentar de comissao e orgao). Escolher
+        # o autor antes de a lista nova chegar nao pega: a resposta atrasada
+        # apaga a escolha e o campo fica em branco. tipo_autor ficou de fora
+        # desta lista por muito tempo - era essa a causa do autor em branco.
+        if nome in ("tipo_materia", "ano", "data_apresentacao", "tipo_autor"):
             pagina.wait_for_timeout(1200)
 
     # O anexo por ultimo: e o campo mais lento (sobe arquivo) e nao influencia
@@ -232,6 +279,32 @@ def preencher(pagina, form: dict, ind: dict) -> tuple[list[str], list[str]]:
             alvo_anexo.set_input_files(str(caminho), timeout=15000)
         except Exception as e:
             falhas.append(f"anexo: nao deu para anexar {caminho.name} ({e})")
+
+    # Ultima palavra sobre o autor, ja com a pagina parada (o upload do anexo
+    # acima leva alguns segundos, tempo de sobra para qualquer resposta
+    # atrasada chegar). Se a escolha sumiu, escolhe de novo aqui; se nem assim
+    # ficar, o recado vai para a tela em vez de o campo ficar em branco calado.
+    esperado_autor = str(ind["autor_id"] or "0").strip()
+    if esperado_autor != "0":
+        alvo_autor = achar(pagina, campos.get("autor", []))
+        if alvo_autor is None:
+            autor_ok = False
+        elif valor_de_select(alvo_autor) == esperado_autor:
+            autor_ok = True
+        else:
+            autor_ok = garantir_select(pagina, alvo_autor, esperado_autor, 2)
+    if not autor_ok:
+        # Insistimos tres vezes e a escolha nao ficou. O que sobra e o filtro
+        # do proprio SAPL: ele so oferece quem estava no mandato na data - dos
+        # 32 parlamentares do catalogo, o formulario costuma listar 21. Entao
+        # ou a data esta errada, ou esse vereador nao era vereador naquele dia.
+        notas.append(
+            f"autor não fixou: mesmo repetindo, o SAPL não manteve "
+            f"{ind['autor_nome_sapl']} (id {ind['autor_id']}) — ele só oferece "
+            f"quem estava no mandato em "
+            f"{ind.get('data_apresentacao') or 'nesta data'}. Confira a data e "
+            f"escolha à mão."
+        )
 
     # Confere que o numero realmente ficou com o valor certo depois de tudo -
     # se algum outro evento da pagina ainda sobrescrever, isso aparece aqui em
