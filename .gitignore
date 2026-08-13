@@ -44,6 +44,19 @@ tessdata/
 
 
 # ---------------------------------------------------------------------------
+# Programa gerado (scripts\gerar_exe.py)
+# ---------------------------------------------------------------------------
+# 170 MB de Python e bibliotecas empacotados: e resultado de build, se refaz
+# a qualquer momento com um comando. O que se versiona e o gerador.
+build/
+dist/
+*.spec
+
+# Preferencias da interface (ano e data do ultimo lote) - de cada maquina.
+config/interface.json
+
+
+# ---------------------------------------------------------------------------
 # Editor e sistema operacional
 # ---------------------------------------------------------------------------
 .vscode/

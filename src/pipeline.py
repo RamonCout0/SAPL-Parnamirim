@@ -11,11 +11,18 @@ Fluxo:
 A cada execucao, output/pdfs/ e output/markdown/ sao APAGADOS e reconstruidos
 do zero a partir do que estiver em input/ NAQUELE MOMENTO - se voce tirar um
 PDF de input/, a proxima rodada simplesmente nao inclui mais as indicacoes
-dele. O glossario.csv (correcoes manuais) e config/aliases_aprendidos.json
-NAO sao apagados: sao trabalho seu, sobrevivem entre execucoes.
+dele.
 
-Os valores que voce escrever no glossario.csv vencem qualquer deducao da
-maquina na proxima execucao.
+O que NUNCA e apagado e o que voce escreveu: config/correcoes.json (ementa,
+autor e "ja conferi" de cada indicacao) e config/aliases_aprendidos.json
+(nome civil -> nome politico). Esses dois vencem qualquer deducao da maquina
+na rodada seguinte.
+
+O output/revisao_manual/glossario.csv NAO e memoria: e uma janela para as
+pendentes de agora, regravada a cada rodada ja preenchida com o que voce
+digitou antes. Editar ele a mao continua funcionando - o conteudo e importado
+para o correcoes.json no inicio da rodada seguinte, antes de qualquer
+regravacao.
 """
 from __future__ import annotations
 
@@ -31,6 +38,7 @@ from pypdf import PdfReader, PdfWriter
 from . import ollama_client
 from .autores import ResolvedorAutor
 from .campos import extrair_ementa, extrair_nome_autor
+from .datas import achar_pagina_do_carimbo, data_de_apresentacao
 from .config import (
     INPUT_DIR,
     MARKDOWN_DIR,
@@ -39,14 +47,22 @@ from .config import (
     carregar_ids,
     garantir_dirs,
 )
-from .detect import auditar, classificar_paginas, inferir_numeros, montar_blocos
+from .detect import (
+    auditar,
+    classificar_paginas,
+    inferir_numeros,
+    marcar_suspeitos,
+    montar_blocos,
+)
 from .progresso import Progresso
 from .revisao import (
+    CORRECOES,
     escrever_glossario,
     escrever_referencia_autores,
     escrever_revisao_md,
     exportar_paginas_png,
-    ler_glossario,
+    importar_do_glossario,
+    ler_correcoes,
 )
 from .textlayer import extrair_paginas
 
@@ -72,11 +88,18 @@ _ANO_NO_NOME_RE = re.compile(r"@(\d{4})(?:\.pdf)?$", re.IGNORECASE)
 
 @dataclass
 class Indicacao:
+    # O numero que VALE: o lido do papel, ou o que voce corrigiu na revisao.
     numero: int
     ano: int
     pagina_inicial: int
     pagina_final: int
     qtd_paginas: int
+    # O numero como o OCR leu, sem correcao. Nunca muda entre rodadas (o OCR
+    # erra igual toda vez), e por isso e ele que identifica a indicacao no
+    # correcoes.json e no glossario. Sem essa separacao, corrigir o numero
+    # mudaria a chave da propria correcao e ela se perderia na rodada
+    # seguinte - a correcao viraria orfa da indicacao que corrigiu.
+    numero_lido: int = 0
     arquivo_origem: str = ""   # o PDF grande, em input/, de onde ela veio
     arquivo_pdf: str = ""      # o PDF fatiado, em output/pdfs/
     usou_ocr: bool = False     # alguma pagina nao tinha OCR embutido -
@@ -91,6 +114,17 @@ class Indicacao:
     autor_id: int = 0
     autor_nome_sapl: str = ""
     ementa: str = ""
+    # Data de apresentacao DESTA indicacao: a do carimbo "Lido na Sessão", no
+    # verso. Cada uma tem a sua - num lote real ha 48 datas diferentes entre
+    # 196 indicacoes. Vem quase sempre vazia, porque a data e escrita a mao no
+    # carimbo e o OCR nao le letra de mao (ver src/datas.py): quem preenche e
+    # voce, lendo a imagem da pagina do carimbo na propria tela.
+    data_apresentacao: str = ""
+    data_origem: str = ""
+    data_suspeita: bool = False
+    # Qual pagina do bloco tem o carimbo - e a imagem que a interface mostra
+    # na hora de digitar a data. 0 = nao encontrada.
+    pagina_carimbo: int = 0
 
     # rastreabilidade
     autor_no_documento: str = ""
@@ -102,6 +136,10 @@ class Indicacao:
     ementa_metodo: str = ""
     confianca: float = 0.0
     numero_inferido: bool = False
+    # Numero lido que nao conversa com nenhum vizinho da sequencia - o sinal
+    # de OCR destruido no cabecalho. Ver detect.marcar_suspeitos.
+    numero_suspeito: bool = False
+    numero_corrigido: bool = False
     # Marcado quando voce escreve "sim" na coluna CONFIRMAR do glossario -
     # diz "eu vi a pagina, esta tudo certo assim mesmo". Existe porque
     # "numero deduzido" e "1 pagina" nao tem ementa/autor para corrigir: sem
@@ -117,14 +155,34 @@ class Indicacao:
     status: str = "revisao"          # "pronto" | "revisao"
     motivos: list[str] = field(default_factory=list)
     avisos_bloco: list[str] = field(default_factory=list)
+    # QUAIS dos tres campos manuais resolvem esta indicacao: "ementa",
+    # "autor", "confirmar". Preenchido por _classificar a partir dos motivos.
+    # Existe para a tela de revisao saber quando a linha esta de fato
+    # resolvida - antes ela considerava resolvido assim que UM dos tres campos
+    # fosse preenchido, e a indicacao sumia da fila pela metade.
+    falta: list[str] = field(default_factory=list)
 
     @property
     def identificador(self) -> str:
+        """Como a indicacao e conhecida depois de corrigida - o que sai no
+        CSV, no nome do PDF e no cadastro do SAPL."""
         return f"{self.numero}/{self.ano}"
+
+    @property
+    def identificador_lido(self) -> str:
+        """A chave estavel: e por ela que a correcao e guardada e reencontrada
+        na rodada seguinte, quando o OCR ler o mesmo numero errado de novo."""
+        return f"{self.numero_lido or self.numero}/{self.ano}"
 
     @property
     def nome_arquivo(self) -> str:
         return f"{self.numero}-{self.ano}.pdf"
+
+    @property
+    def nome_arquivo_lido(self) -> str:
+        """O nome que o PDF fatiado recebeu ANTES de o numero ser corrigido -
+        e o arquivo que precisa ser renomeado."""
+        return f"{self.numero_lido or self.numero}-{self.ano}.pdf"
 
 
 def _texto_do_bloco(mapa: dict[int, str], ini: int, fim: int) -> str:
@@ -238,6 +296,7 @@ def processar_pasta(
 
     print(f"\n{len(todas)} indicacoes ao todo. Aplicando correcoes do glossario ...")
     _aplicar_correcoes_manuais(todas, ids, resolvedor)
+    _renomear_pdfs_corrigidos(todas)
     for ind in todas:
         _classificar(ind)
 
@@ -285,11 +344,15 @@ def _extrair_um_pdf(
     ainda - isso e feito uma vez so, depois de juntar todos os arquivos."""
     paginas = extrair_paginas(caminho_pdf, mostrar_progresso=True)
     mapa = {p.numero: p.texto for p in paginas}
+    densidades = {p.numero: p.densidade for p in paginas}
     via_ocr = {p.numero for p in paginas if p.via_ocr}
     print(f"  {len(paginas)} paginas")
 
     inicios, citacoes = classificar_paginas(paginas)
-    blocos = auditar(montar_blocos(inferir_numeros(inicios, ano), len(paginas), ano))
+    # Ordem obrigatoria: marcar os suspeitos ANTES de deduzir, senao um numero
+    # lido errado vira ancora e estraga a deducao das vizinhas.
+    inicios = inferir_numeros(marcar_suspeitos(inicios), ano)
+    blocos = auditar(montar_blocos(inicios, len(paginas), ano))
     print(f"  {len(blocos)} indicacoes")
 
     indicacoes: list[Indicacao] = []
@@ -298,15 +361,33 @@ def _extrair_um_pdf(
         texto = _texto_do_bloco(mapa, b.pagina_inicial, b.pagina_final)
         ind = Indicacao(
             numero=b.numero,
+            numero_lido=b.numero,
             ano=b.ano,
             pagina_inicial=b.pagina_inicial,
             pagina_final=b.pagina_final,
             qtd_paginas=b.qtd_paginas,
             numero_inferido=b.numero_inferido,
+            numero_suspeito=b.numero_suspeito,
             avisos_bloco=list(b.avisos),
             arquivo_origem=caminho_pdf,
             usou_ocr=any(n in via_ocr for n in range(b.pagina_inicial, b.pagina_final + 1)),
         )
+
+        # A data que vale e a do carimbo "Lido na Sessão", no verso - e ela e
+        # escrita a mao. O que da para fazer pela maquina e achar a PAGINA do
+        # carimbo, para a interface mostrar essa imagem na hora de digitar.
+        ind.pagina_carimbo = achar_pagina_do_carimbo(
+            mapa, densidades, b.pagina_inicial, b.pagina_final
+        )
+        if ind.pagina_carimbo:
+            # Tenta ler assim mesmo: se algum dia o carimbo vier datilografado
+            # em vez de manuscrito, a data sai de graca. Nos lotes de 2021 isto
+            # nao acerta nenhuma - e esta certo que nao acerte, porque chutar
+            # uma data em documento oficial seria pior.
+            achada = data_de_apresentacao(mapa.get(ind.pagina_carimbo, ""))
+            if achada and achada.ano == ind.ano:
+                ind.data_apresentacao = achada.formatada
+                ind.data_origem = "carimbo"
 
         res_ementa = extrair_ementa(texto)
         ind.verbo = res_ementa["verbo"] or ""
@@ -356,20 +437,64 @@ def _extrair_um_pdf(
     return indicacoes, citacoes
 
 
+def _recuperar_correcoes_antigas() -> None:
+    """Uma vez so: puxa para o correcoes.json o que a versao antiga perdeu.
+
+    Ate a correcao deste ciclo, cada rodada movia o glossario preenchido para
+    glossario_anterior.csv e regravava o CSV em branco - o README chamava esse
+    arquivo de "copia de seguranca que pode apagar sem medo", mas na pratica
+    ele era o UNICO lugar onde a correcao digitada sobrava, e nunca era lido
+    de volta. Se ele ainda existe e ainda nao ha correcoes.json, o trabalho
+    que estava la volta para o lugar certo.
+    """
+    if CORRECOES.exists():
+        return
+    anterior = GLOSSARIO.with_name("glossario_anterior.csv")
+    if not anterior.exists():
+        return
+    quantas = importar_do_glossario(anterior)
+    if quantas:
+        print(
+            f"recuperadas {quantas} correcao(oes) de {anterior.name} "
+            f"(perdidas pela versao antiga) -> {CORRECOES.name}"
+        )
+
+
 def _aplicar_correcoes_manuais(
     todas: list[Indicacao], ids: dict, resolvedor: ResolvedorAutor
 ) -> None:
-    manuais = ler_glossario(GLOSSARIO)
+    # Ordem importa: primeiro o que foi digitado direto na planilha entra na
+    # memoria permanente, depois a memoria e que manda. Sem este passo, editar
+    # o glossario.csv a mao (o caminho "avancado" do README) so valeria ate a
+    # proxima regravacao do arquivo.
+    _recuperar_correcoes_antigas()
+    novas = importar_do_glossario(GLOSSARIO)
+    if novas:
+        print(f"{novas} correcao(oes) do glossario.csv guardadas em {CORRECOES.name}")
+
+    manuais = ler_correcoes()
     if manuais:
-        print(f"glossario preenchido: {len(manuais)} correcoes manuais")
+        print(f"{len(manuais)} correcao(oes) manuais em {CORRECOES.name}")
 
     nomes = {a["id"]: a["nome"] for a in ids["autores"]}
     aprendidos: list[str] = []
 
     for ind in todas:
-        manual = manuais.get(ind.identificador)
+        manual = manuais.get(ind.identificador_lido)
         if not manual:
             continue
+        # O numero vem primeiro: tudo depois dele (nome do PDF, cadastro no
+        # SAPL) usa o valor corrigido.
+        if manual.get("numero"):
+            novo = int(manual["numero"])
+            if novo != ind.numero:
+                ind.numero = novo
+                ind.numero_corrigido = True
+                ind.motivos = [m for m in ind.motivos if not m.startswith("numero")]
+        if manual.get("data"):
+            ind.data_apresentacao = manual["data"]
+            ind.data_origem = "manual"
+            ind.data_suspeita = False
         if manual.get("ementa"):
             ind.ementa = manual["ementa"]
             ind.ementa_metodo = "manual"
@@ -400,30 +525,113 @@ def _aplicar_correcoes_manuais(
         print("rode de novo para aplicar aos demais casos iguais")
 
 
+def _renomear_pdfs_corrigidos(todas: list[Indicacao]) -> None:
+    """Corrigiu o numero na revisao? O PDF fatiado passa a se chamar assim.
+
+    Sem isto voce anexaria "9-2021.pdf" na indicacao 1629/2021 - e como o
+    anexo e feito a mao, o erro so apareceria na hora de escolher o arquivo,
+    ou nem apareceria. O registro de gerados tambem migra de chave, senao o
+    sistema acharia que a 1629 nunca teve PDF e recriaria um do zero.
+    """
+    corrigidas = [i for i in todas if i.numero_corrigido]
+    if not corrigidas:
+        return
+
+    ja_gerados = _carregar_gerados()
+    renomeados = 0
+    for ind in corrigidas:
+        antigo = PDFS_DIR / ind.nome_arquivo_lido
+        novo = PDFS_DIR / ind.nome_arquivo
+        if antigo.exists() and not novo.exists():
+            try:
+                antigo.rename(novo)
+                renomeados += 1
+            except OSError as e:
+                print(f"  nao deu para renomear {antigo.name} -> {novo.name}: {e}")
+        if ind.identificador_lido in ja_gerados:
+            ja_gerados.discard(ind.identificador_lido)
+            ja_gerados.add(ind.identificador)
+
+    _salvar_gerados(ja_gerados)
+    if renomeados:
+        print(f"{renomeados} PDF(s) renomeado(s) pelo numero corrigido")
+
+
+def _o_que_resolve(motivo: str) -> str:
+    """Qual dos tres campos manuais resolve este motivo.
+
+    As strings testadas aqui sao TODAS produzidas neste mesmo arquivo (ou em
+    _extrair_um_pdf, logo acima) - nao sao texto de origem externa. "confirmar"
+    e o destino de tudo que nao tem o que digitar: e o campo que quer dizer
+    "eu olhei a pagina e esta certo assim".
+    """
+    # "numero:" (com dois pontos) e o que se corrige digitando o numero certo.
+    # "numero deduzido pela sequencia" (sem dois pontos) e outra coisa: ali o
+    # sistema chutou pela posicao e so quer que voce confirme olhando o papel.
+    if motivo.startswith("numero:"):
+        return "numero"
+    if motivo.startswith("data:"):
+        return "data"
+    if motivo.startswith("ementa"):
+        return "ementa"
+    if motivo.startswith("autor"):
+        return "autor"
+    return "confirmar"
+
+
 def _classificar(ind: Indicacao) -> None:
     """Decide se a indicacao pode ir sozinha para o SAPL."""
     motivos = list(ind.motivos)
 
+    # Ementa escrita por voce nao passa pelo criterio de tamanho nem pelo de
+    # confianca: o criterio existe para desconfiar do OCR, e aqui nao ha OCR
+    # nenhum. Sem esta excecao, uma ementa curta legitima ("INDICA A PODA DE
+    # ARVORE NA RUA X") ficaria pedindo revisao para sempre, mesmo depois de
+    # transcrita corretamente do papel.
+    manual = ind.ementa_metodo == "manual"
+
     if not ind.ementa:
         motivos.append("ementa vazia")
-    elif len(ind.ementa) < EMENTA_MIN:
-        motivos.append(f"ementa curta demais ({len(ind.ementa)} caracteres)")
-    elif len(ind.ementa) > EMENTA_MAX:
-        motivos.append(f"ementa longa demais ({len(ind.ementa)} caracteres)")
+    elif not manual:
+        if len(ind.ementa) < EMENTA_MIN:
+            motivos.append(f"ementa curta demais ({len(ind.ementa)} caracteres)")
+        elif len(ind.ementa) > EMENTA_MAX:
+            motivos.append(f"ementa longa demais ({len(ind.ementa)} caracteres)")
 
-    if ind.confianca < CONFIANCA_MIN:
-        motivos.append(f"confianca da ementa baixa ({ind.confianca})")
+    # Prefixo "ementa:" nao e enfeite: e o que _o_que_resolve usa para saber
+    # que quem resolve isto e o campo de ementa, e nao o "ja conferi".
+    if ind.confianca < CONFIANCA_MIN and not manual:
+        motivos.append(f"ementa: confianca baixa ({ind.confianca})")
     if not ind.autor_id:
-        if not any(m.startswith("autor:") for m in motivos):
+        if not any(m.startswith("autor") for m in motivos):
             motivos.append("autor nao identificado")
+    # Sem data nao da para cadastrar: e o programa que preenche o campo no
+    # SAPL agora, e a data tambem e o que destrava o select de autor (o SAPL
+    # filtra pelo mandato vigente naquela data). Ela e escrita a mao no
+    # carimbo do verso, entao vem de voce - a tela de conferencia mostra a
+    # imagem do carimbo do lado do campo.
+    if not ind.data_apresentacao:
+        motivos.append("data: escrita a mao no carimbo - leia na imagem e digite")
+
+    # Numero que nao conversa com a sequencia do lote. Nunca pode ir sozinho
+    # para o SAPL: um numero errado vira registro oficial errado.
+    if ind.numero_suspeito and not ind.numero_corrigido and not ind.confirmado_manual:
+        motivos.append(
+            f"numero: {ind.numero_lido} nao conversa com a sequencia do lote - "
+            "confira no papel")
     # Estes dois nao tem campo de ementa/autor para corrigir - so o CONFIRMAR
-    # do glossario (ind.confirmado_manual) resolve.
-    if ind.numero_inferido and not ind.confirmado_manual:
+    # (ind.confirmado_manual) resolve.
+    if ind.numero_inferido and not ind.confirmado_manual and not ind.numero_corrigido:
         motivos.append("numero deduzido pela sequencia - confirmar no papel")
     if ind.qtd_paginas == 1 and not ind.confirmado_manual:
         motivos.append("bloco com 1 pagina - verso ausente no scan")
 
     ind.motivos = motivos
+    # Ordem fixa (nao a de aparicao dos motivos) para a tela de revisao
+    # mostrar sempre na mesma sequencia.
+    resolvem = {_o_que_resolve(m) for m in motivos}
+    ind.falta = [c for c in ("numero", "data", "ementa", "autor", "confirmar")
+                 if c in resolvem]
     ind.status = "pronto" if not motivos else "revisao"
 
 
@@ -488,7 +696,8 @@ def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict)
         "status", "numero", "ano", "paginas", "arquivo_origem", "arquivo_pdf",
         "tipo_materia_id", "ano_sapl", "numero_sapl",
         "tipo_autor_id", "autor_id", "autor_nome_sapl", "regime_id",
-        "tipo_apresentacao", "ementa", "autor_no_documento", "autor_origem",
+        "tipo_apresentacao", "data_apresentacao", "data_origem",
+        "ementa", "autor_no_documento", "autor_origem",
         "autor_escore", "verbo", "ementa_metodo", "confianca", "usou_ocr", "motivos",
     ]
     with open(OUTPUT_DIR / "indicacoes.csv", "w", encoding="utf-8-sig", newline="") as f:
@@ -502,7 +711,10 @@ def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict)
                 Path(i.arquivo_pdf).name if i.arquivo_pdf else "",
                 i.tipo_materia_id, i.ano, i.numero,
                 i.tipo_autor_id, i.autor_id, i.autor_nome_sapl, i.regime_id,
-                i.tipo_apresentacao, i.ementa, i.autor_no_documento,
+                i.tipo_apresentacao,
+                i.data_apresentacao + (" (CONFERIR)" if i.data_suspeita else ""),
+                i.data_origem,
+                i.ementa, i.autor_no_documento,
                 i.autor_origem, i.autor_escore,
                 i.verbo, i.ementa_metodo, i.confianca,
                 "sim" if i.usou_ocr else "não", " | ".join(i.motivos),
@@ -549,22 +761,17 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
             if antigo.name.rsplit("_pg", 1)[0] not in vivos:
                 antigo.unlink()
 
+    # O glossario.csv e uma JANELA para as pendentes de agora, nao a memoria do
+    # sistema: pode ser regravado a vontade porque tudo que voce digitou ja foi
+    # para o correcoes.json (em _aplicar_correcoes_manuais, no inicio da
+    # rodada) e volta preenchido logo abaixo.
     if not pendentes:
-        # Regrava vazio em vez de so sair: se a rodada anterior deixou
-        # pendencias e agora nao ha nenhuma (porque o PDF sumiu de input/ ou
-        # tudo foi resolvido), o glossario.csv antigo nao pode continuar
-        # apontando indicacoes que nao existem mais.
-        if GLOSSARIO.exists():
-            ja_preenchidos = ler_glossario(GLOSSARIO)
-            if ja_preenchidos:
-                reserva = GLOSSARIO.with_name("glossario_anterior.csv")
-                GLOSSARIO.replace(reserva)
-                print(f"glossario anterior preservado em {reserva.name}")
         escrever_glossario([], GLOSSARIO)
         escrever_revisao_md([], REVISAO_DIR / "REVISAO.md")
         print("nada pendente")
         return
 
+    correcoes = ler_correcoes()
     linhas = []
     barra = Progresso(len(pendentes), prefixo="  paginas (png) ")
     for ind in pendentes:
@@ -575,31 +782,40 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
             prefixo=f"{ind.numero}-{ind.ano}",
         )
         barra.avancar()
+        # As colunas manuais voltam PREENCHIDAS com o que voce ja tinha
+        # escrito. E o que diferencia "continuar de onde parou" de "comecar do
+        # zero toda vez": uma indicacao que ainda precisa do autor nao apaga a
+        # ementa que voce transcreveu na rodada passada.
+        ja = correcoes.get(ind.identificador_lido, {})
+        autor_manual = ja.get("autor_id") or ja.get("autor_id_invalido") or ""
         linhas.append({
-            "numero": ind.numero,
+            # A chave e o numero LIDO - e por ele que a correcao e reencontrada
+            # na proxima rodada, quando o OCR errar igual de novo.
+            "numero": ind.numero_lido or ind.numero,
             "ano": ind.ano,
             "paginas": f"{ind.pagina_inicial}-{ind.pagina_final}",
+            "NUMERO_MANUAL": ja.get("numero", ""),
+            "DATA_MANUAL": ja.get("data", ""),
+            "data_lida_pela_maquina": (
+                f"{ind.data_apresentacao} ({ind.data_origem})"
+                if ind.data_apresentacao
+                else (f"escrita a mao no carimbo da pagina {ind.pagina_carimbo}"
+                      if ind.pagina_carimbo else "carimbo nao localizado")
+            ),
             "imagens": ", ".join(imagens),
+            "precisa": ", ".join(ind.falta),
             "motivo": " | ".join(ind.motivos),
             "ementa_lida_pela_maquina": ind.ementa,
             "sugestao_ollama_ementa": ind.sugestao_ementa_ollama,
-            "EMENTA_MANUAL": "",
+            "EMENTA_MANUAL": ja.get("ementa", ""),
             "autor_lido_pela_maquina": (
                 f"{ind.autor_no_documento or '(nada legivel)'}"
                 f" -> {ind.autor_nome_sapl or '?'}"
             ),
             "sugestao_ollama_autor": ind.sugestao_autor_ollama,
-            "AUTOR_ID_MANUAL": "",
-            "CONFIRMAR": "",
+            "AUTOR_ID_MANUAL": autor_manual,
+            "CONFIRMAR": "sim" if ja.get("confirmado") else "",
         })
-
-    # Nao sobrescreve um glossario que voce ja comecou a preencher.
-    if GLOSSARIO.exists():
-        ja_preenchidos = ler_glossario(GLOSSARIO)
-        if ja_preenchidos:
-            reserva = GLOSSARIO.with_name("glossario_anterior.csv")
-            GLOSSARIO.replace(reserva)
-            print(f"glossario anterior preservado em {reserva.name}")
 
     escrever_glossario(linhas, GLOSSARIO)
     escrever_revisao_md(linhas, REVISAO_DIR / "REVISAO.md")

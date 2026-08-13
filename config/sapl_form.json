@@ -21,11 +21,19 @@
       "select[name='apresentacao']",
       "#id_tipo_apresentacao",
       "select[name='tipo_apresentacao']"
+    ],
+    "data_apresentacao": [
+      "#id_data_apresentacao",
+      "input[name='data_apresentacao']"
+    ],
+    "texto_original": [
+      "#id_texto_original",
+      "input[name='texto_original']",
+      "input[type='file']"
     ]
   },
 
-  "_nao_preencher": [
-    "data_apresentacao - voce preenche na mao",
-    "texto_original - voce anexa o PDF de output/pdfs/ na mao"
-  ]
+  "_doc_data": "A data de apresentacao e preenchida ANTES do autor, de proposito: o SAPL so libera as opcoes do select 'Autor' depois que a data existe, porque filtra por quem estava no mandato naquela data. Invertendo a ordem, o autor nunca preenche.",
+
+  "_doc_anexo": "texto_original e um input de arquivo. O PDF fatiado de output/pdfs/ e anexado por ele. O programa preenche e PARA - conferir e salvar continua sendo decisao de gente."
 }

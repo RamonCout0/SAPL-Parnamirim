@@ -49,108 +49,22 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
-from src.config import CONFIG_DIR, OUTPUT_DIR, RAIZ
-
-PERFIL = RAIZ / ".perfil_navegador"
-
-
-def carregar_form() -> dict:
-    return json.loads((CONFIG_DIR / "sapl_form.json").read_text(encoding="utf-8"))
-
-
-def achar(pagina, candidatos: list[str]):
-    """Primeiro seletor que existir de verdade na pagina."""
-    for sel in candidatos:
-        alvo = pagina.locator(sel)
-        try:
-            if alvo.count() > 0:
-                return alvo.first
-        except Exception:
-            continue
-    return None
-
-
-def definir_select(pagina, alvo, valor: str) -> bool:
-    """Escolhe uma opcao. Cai para JS quando o SAPL esconde o select (select2)."""
-    try:
-        alvo.select_option(value=str(valor), timeout=4000)
-        return True
-    except Exception:
-        pass
-    try:
-        # select2 mantem o <select> nativo oculto: mexe nele e avisa a pagina.
-        alvo.evaluate(
-            """(el, v) => {
-                el.value = v;
-                el.dispatchEvent(new Event('input',  {bubbles: true}));
-                el.dispatchEvent(new Event('change', {bubbles: true}));
-                if (window.jQuery) jQuery(el).trigger('change');
-            }""",
-            str(valor),
-        )
-        return alvo.input_value() == str(valor)
-    except Exception:
-        return False
-
-
-def definir_texto(alvo, valor: str) -> bool:
-    try:
-        alvo.fill(str(valor), timeout=4000)
-        return True
-    except Exception:
-        return False
-
-
-def _pagina_valida(nav, pagina):
-    """Devolve uma pagina utilizavel. Se a atual foi fechada (janela fechada
-    a mao, crash por ficar muito tempo em segundo plano etc.), reaproveita
-    outra aba aberta no mesmo contexto ou abre uma nova - sem isso, qualquer
-    fechamento acidental da janela derrubava o script inteiro."""
-    try:
-        if not pagina.is_closed():
-            return pagina
-    except PlaywrightError:
-        pass
-    for p in nav.pages:
-        try:
-            if not p.is_closed():
-                return p
-        except PlaywrightError:
-            continue
-    return nav.new_page()
-
-
-def descobrir_rotas(pagina, base: str) -> list[str]:
-    """Lista as rotas de materia visiveis depois do login.
-
-    O SAPL responde 404 (nao 302) nas telas de CRUD quando o usuario nao tem
-    permissao, entao so da para confirmar o caminho do formulario estando
-    logado. Se o caminho do config estiver errado, isto mostra o certo.
-    """
-    achadas: set[str] = set()
-    for caminho in ("/", "/materia/", "/sistema/"):
-        try:
-            pagina.goto(base + caminho, wait_until="domcontentloaded", timeout=20000)
-        except Exception:
-            continue
-        for href in pagina.eval_on_selector_all(
-            "a[href]", "els => els.map(e => e.getAttribute('href'))"
-        ):
-            if href and "materia" in href and href.startswith("/"):
-                achadas.add(href.split("?")[0])
-    return sorted(achadas)
+from src.config import OUTPUT_DIR
+# A logica de preencher vive em src/sapl.py, compartilhada com a interface
+# grafica - as duas telas preenchem igual porque e o mesmo codigo.
+from src.sapl import (
+    PERFIL,
+    achar,
+    carregar_form,
+    descobrir_rotas,
+    listar_campos,
+    preencher,
+)
+from src.sapl import pagina_valida as _pagina_valida
 
 
 def inspecionar(pagina) -> None:
-    campos = pagina.evaluate(
-        """() => [...document.querySelectorAll('input, select, textarea')].map(e => ({
-              tag: e.tagName.toLowerCase(),
-              tipo: e.type || '',
-              id: e.id || '',
-              name: e.name || '',
-              rotulo: (document.querySelector(`label[for="${e.id}"]`)||{}).innerText || ''
-           }))"""
-    )
+    campos = listar_campos(pagina)
     print(f"\n{len(campos)} campos na pagina:\n")
     print(f"{'TAG':<9} {'TIPO':<10} {'ID':<30} {'NAME':<28} ROTULO")
     for c in campos:
@@ -160,86 +74,6 @@ def inspecionar(pagina) -> None:
         print(f"{c['tag']:<9} {c['tipo']:<10} {c['id']:<30} {c['name']:<28} {rotulo}")
     print("\nAjuste config\\sapl_form.json com os ids/names que aparecem acima.")
 
-
-def preencher(pagina, form: dict, ind: dict) -> tuple[list[str], list[str]]:
-    """Preenche os campos automaticos. Retorna (falhas, notas).
-
-    falhas: problema de configuracao de verdade - vale rodar --inspecionar.
-    notas: esperado, precisa de atencao manual, mas NAO e bug de config.
-    """
-    campos = form["campos"]
-    falhas = []
-    notas = []
-
-    # "numero" fica por ULTIMO de proposito. O formulario do SAPL sugere
-    # automaticamente o "proximo numero disponivel" assim que tipo_materia e
-    # ano sao escolhidos - via requisicao assincrona que so volta depois do
-    # nosso fill. Se numero for preenchido antes desses dois, a sugestao do
-    # SAPL chega em seguida e sobrescreve o que preenchemos (foi o que
-    # aconteceu: o campo sempre ficava com o ultimo numero da sequencia geral,
-    # tipo 1946, em vez do numero da indicacao).
-    plano = [
-        ("tipo_materia", "select", ind["tipo_materia_id"]),
-        ("ano", "select", ind["ano"]),
-        ("regime_tramitacao", "select", ind["regime_id"]),
-        ("tipo_apresentacao", "select", ind["tipo_apresentacao"]),
-        # A ementa vai em CAIXA ALTA para o SAPL - convencao do orgao. O
-        # texto guardado em indicacoes.json/csv fica como foi extraido (para
-        # servir de comparacao com o PDF original); a maiusculizacao e so
-        # nesta hora, ao escrever na tela.
-        ("ementa", "texto", ind["ementa"].upper()),
-        ("tipo_autor", "select", ind["tipo_autor_id"]),
-        ("autor", "select", ind["autor_id"]),
-        ("numero", "texto", ind["numero"]),
-    ]
-
-    for nome, especie, valor in plano:
-        alvo = achar(pagina, campos.get(nome, []))
-        if alvo is None:
-            falhas.append(f"{nome}: campo nao encontrado na pagina")
-            continue
-        # "ano" as vezes e select, as vezes input, dependendo da versao.
-        marca = alvo.evaluate("e => e.tagName.toLowerCase()")
-        if marca == "select":
-            ok = definir_select(pagina, alvo, valor)
-        else:
-            ok = definir_texto(alvo, valor)
-        if not ok:
-            if nome == "autor":
-                # O SAPL so libera as opcoes do select "Autor" DEPOIS que a
-                # data e preenchida (filtra por quem estava no mandato
-                # naquela data) - e a data e sempre manual (voce quem
-                # escreve). Entao isto e esperado toda vez que a data ainda
-                # nao foi preenchida, nao e problema de configuracao: nao
-                # adianta rodar --inspecionar para "consertar".
-                notas.append(
-                    f"autor não pré-selecionado (o SAPL só libera essa lista "
-                    f"depois que a data é preenchida) — escolha manualmente: "
-                    f"{ind['autor_nome_sapl']} (id {ind['autor_id']})"
-                )
-            else:
-                falhas.append(f"{nome}: nao aceitou o valor {valor!r}")
-
-        # Depois de tipo_materia/ano, a sugestao automatica do SAPL pode
-        # demorar um instante para chegar e reescrever o campo numero. Espera
-        # aqui em vez de so no final, para o numero (preenchido por ultimo)
-        # nao ser pego por uma sugestao ainda em transito.
-        if nome in ("tipo_materia", "ano"):
-            pagina.wait_for_timeout(1200)
-
-    # Confere que o numero realmente ficou com o valor certo depois de tudo -
-    # se algum outro evento da pagina ainda sobrescrever, isso aparece aqui em
-    # vez de passar batido para a tela que o usuario confere visualmente.
-    alvo_numero = achar(pagina, campos.get("numero", []))
-    if alvo_numero is not None:
-        atual = alvo_numero.input_value()
-        if str(atual).strip() != str(ind["numero"]):
-            falhas.append(
-                f"numero: mostrando {atual!r} na tela, esperado {ind['numero']!r} "
-                "(o SAPL deve ter sugerido outro numero depois do preenchimento - confira antes de salvar)"
-            )
-
-    return falhas, notas
 
 
 def _pedir_ano(itens: list[dict], args: list[str]) -> list[dict]:

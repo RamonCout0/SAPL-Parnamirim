@@ -32,7 +32,7 @@ para revisão manual em vez de travar o processamento.
 | Regime de tramitação | fixo: **Ordinária** (id 1) |
 | Tipo de apresentação | fixo: **Escrita** ("E") |
 | Ementa | texto após INDICA / REITERA / RETIRA / VEM INDICAR, até "Justificativa" — preenchida **EM CAIXA ALTA** |
-| **Data de apresentação** | **você** |
+| **Data de apresentação** | **você** — escrita à mão no carimbo; a interface mostra a imagem dele |
 | **Texto original (anexo)** | **você** — o PDF já sai pronto em `output/pdfs/` |
 
 O script de navegador **preenche e para**. Ele nunca salva: você confere a tela,
@@ -41,6 +41,56 @@ anexa o PDF, escreve a data e clica em salvar.
 ---
 
 ## Instalação em outro PC
+
+**Para quem só vai usar:** descompacte a pasta `SAPL Parnamirim` e clique duas
+vezes em `SAPL Parnamirim.exe`. Não precisa de Python, nem de `.venv`, nem de
+prompt de comando — o Python e as bibliotecas vão dentro do programa.
+
+Na primeira vez, abra a aba **Instalação** e clique em *Preparar o que falta*:
+ela baixa o navegador usado na etapa de envio ao SAPL (~90 MB, uma vez só).
+As abas de processar e conferir funcionam sem esse download.
+
+O programa cria `input/`, `output/` e `config/` **ao lado do executável**.
+Ao atualizar para uma versão nova, copie a pasta `config/` da antiga: são as
+suas correções e os nomes de vereadores já confirmados, que não precisam ser
+refeitos.
+
+### Gerar o executável (para quem mantém o projeto)
+
+```bash
+.venv\Scripts\python -m pip install pyinstaller
+.venv\Scripts\python scripts\gerar_exe.py
+```
+
+Sai em `dist/SAPL Parnamirim/` (~170 MB), pronta para compactar e distribuir.
+
+### Antivírus
+
+**O Windows Defender pode bloquear o executável.** Já aconteceu aqui. Não é
+problema do programa: executável gerado por PyInstaller, sem assinatura
+digital e sem histórico de uso, tem o mesmo formato que um programa malicioso
+empacotado — binário novo, desconhecido, que descompacta código na memória. O
+que falta é reputação, não segurança.
+
+Nunca resolva isso desligando o antivírus. As saídas legítimas, na ordem em
+que funcionam melhor:
+
+1. **Assinar o executável com certificado de código.** É a solução de
+   verdade: elimina o bloqueio e vai acumulando reputação a cada versão.
+   Custa uma anuidade e o certificado precisa ser emitido para a Câmara ou
+   para quem publica o programa.
+2. **Submeter o arquivo à Microsoft como falso positivo**, em
+   [microsoft.com/wdsi/filesubmission](https://www.microsoft.com/en-us/wdsi/filesubmission).
+   É gratuito e costuma ser resolvido em alguns dias — mas vale só para
+   aquele arquivo exato, então precisa ser refeito a cada nova versão.
+3. **O TI da Câmara liberar o programa na política do Defender**, como se faz
+   com qualquer software interno. Vale para as máquinas do órgão.
+4. **Distribuir sem empacotar:** em vez do `.exe`, uma pasta com o Python
+   embutido e um atalho. O `python.exe` é assinado pela Python Software
+   Foundation e não dispara a heurística de empacotador. Continua sendo dois
+   cliques para o usuário; só a pasta fica menos "limpa".
+
+### Ambiente de desenvolvimento
 
 ```powershell
 git clone <url-do-repositorio>
@@ -69,7 +119,69 @@ o `instalar.ps1` é PowerShell; lá basta:
 
 ---
 
-## Uso
+## Uso pela interface (recomendado)
+
+Dois cliques em **`SAPL Parnamirim.bat`**. Não precisa de terminal, nem de
+comando nenhum.
+
+A janela tem três abas, na ordem do trabalho:
+
+**1. Processar** — arraste os PDFs para a lista (ou use *Adicionar PDFs...*),
+informe o **ano** e clique em **FAZER TUDO**. O andamento aparece na própria
+tela: quantas páginas foram lidas, quantas indicações saíram, quantas ficaram
+para conferir.
+
+**2. Conferir** — para cada indicação que a máquina não leu com segurança, a
+**página escaneada aparece do lado esquerdo** e os campos do lado direito. Em
+cima, em vermelho, o que ainda falta naquela indicação ("Ainda falta: ementa,
+autor"). Corrija, clique em **Salvar e continuar**, e ele vai para a próxima.
+O número entre parênteses na aba diz quantas ainda faltam.
+
+**3. Enviar ao SAPL** — abre o Firefox com o formulário preenchido, uma
+indicação por vez. A tela mostra **a imagem do carimbo "Lido na Sessão"**
+daquela indicação, para você ler a data escrita à mão e digitar ali mesmo
+(o botão *Copiar* guarda e copia de uma vez), e o **caminho do PDF para
+anexar**, com botão que abre a pasta no arquivo certo. Você confere, anexa,
+cola a data e salva no SAPL; depois clica em *Próxima* aqui.
+
+## A data de apresentação: onde ela está, e por que não dá para lê-la
+
+Duas coisas, as duas descobertas nos lotes reais:
+
+**1. A data é de cada indicação, não do lote.** Elas chegam juntas num PDF só
+porque foram digitalizadas juntas. Medido: **48 datas diferentes entre 196
+indicações** de um mesmo arquivo, e 12 entre 58 de outro. Um campo único para
+o lote cadastraria quase todas erradas.
+
+**2. A data que vale é a do carimbo "Lido na Sessão", no verso — e ela é
+escrita à mão.** Não é a do fecho da indicação (*"Plenário Dr. Mário
+Medeiros, 16 de dezembro de 2021"*), que é quando o vereador assinou. Dos 117
+carimbos encontrados nos dois lotes, o OCR entregou data legível em **zero**.
+É assim que eles saem do scanner:
+
+```
+Mesa Diretora | Lido na Sessa© | Data: U ! t 3-
+Mesa Dia etora | Lido na Sessao | Data: l t / c j
+Mesa [3iret7ra | Lido na Sessão | • Data: 105 i~oad
+```
+
+Computador não lê letra de mão. Então o programa **não tenta adivinhar** — ele
+faz o que é útil de verdade: acha a página do carimbo e **mostra essa imagem
+na tela**, na hora em que você vai digitar. Você lê os garranchos ampliados e
+escreve a data uma vez; ela fica guardada em `config/correcoes.json` e não
+precisa ser lida de novo, nem se o lote for reprocessado.
+
+A leitura automática continua tentando, para o caso de algum dia o carimbo vir
+datilografado — mas nunca a partir da data do Plenário. Oferecer a data errada
+para copiar é pior do que não oferecer nenhuma.
+
+A interface chama exatamente o mesmo código dos scripts de terminal — os dois
+caminhos produzem o mesmo resultado. Quem prefere terminal continua com os
+scripts descritos abaixo.
+
+---
+
+## Uso pelo terminal
 
 ### 1. Colocar os PDFs em `input/`
 
@@ -144,8 +256,20 @@ nem CSV:
 Abre sozinho no navegador. Para cada indicação pendente, mostra a página
 escaneada ao lado de uma caixa de texto (já vem com o que a máquina leu, só
 corrija o que faltar) e uma lista com o nome dos vereadores. Clique em
-**Salvar e continuar** e ele já passa para a próxima. Quando acabar, ele avisa
-na tela.
+**Salvar e continuar** e ele já passa para a próxima pendente. Quando acabar,
+ele avisa na tela.
+
+No alto de cada indicação aparece **o que ainda falta** nela — "Ainda falta:
+ementa, autor". Uma indicação só sai da fila quando **tudo** que ela pede está
+preenchido: meia correção continua pendente, e a tela diz o que sobrou. Dá
+para navegar livremente (**anterior** / **próxima**) e voltar numa indicação
+já salva para conferir ou mudar o que você mesmo escreveu.
+
+O **número** também é corrigível ali, junto com ementa e autor. Quando o OCR
+destrói o cabeçalho e entrega um número que não conversa com a sequência do
+lote, a indicação é barrada e a tela pede o número certo — você lê na imagem
+ao lado e digita. **O PDF em `output/pdfs/` é renomeado sozinho** para o
+número corrigido, já que é você quem anexa o arquivo no SAPL.
 
 **Nem todo aviso é sobre ementa ou autor.** "Número deduzido pela sequência"
 e "bloco com 1 página" são avisos estruturais — não têm texto para corrigir,
@@ -159,6 +283,35 @@ Depois **rode o passo 3 de novo**. O que você escreveu vence qualquer dedução
 da máquina, e cada nome civil que você confirmar entra em
 `config/aliases_aprendidos.json` — na próxima vez ele resolve sozinho.
 
+### Onde o seu trabalho fica guardado
+
+Em **`config/correcoes.json`**, uma entrada por indicação, com a ementa que
+você transcreveu, o id do autor que você escolheu, o número corrigido e o "já
+conferi". Esse arquivo é permanente: nenhuma rodada do pipeline apaga ele, e
+o que estiver ali vence qualquer dedução da máquina, para sempre.
+
+A chave de cada entrada é o número **como o OCR leu** (`"9/2021"`, mesmo que o
+certo seja 1629). Parece estranho, mas é o que faz a correção ser reencontrada
+na rodada seguinte: o OCR erra igual toda vez, então é o número errado que
+identifica aquela indicação de forma estável. Se a chave fosse o número
+corrigido, a correção viraria órfã da indicação que corrigiu.
+
+Pode (e vale a pena) **versionar no git**, igual ao `aliases_aprendidos.json`:
+a correção que uma pessoa fez passa a valer para todo mundo que usa o
+repositório.
+
+O `output/revisao_manual/glossario.csv` **não** é a memória do sistema — é só
+uma janela para as pendentes de agora, regravada a cada rodada já preenchida
+com o que você digitou antes. Editar ele à mão continua funcionando: o
+conteúdo é importado para o `correcoes.json` no início da rodada seguinte,
+antes de qualquer regravação.
+
+> Se você usou uma versão anterior a esta: ali o CSV *era* o único lugar das
+> correções, e como ele é regravado a cada rodada, tudo que você digitava se
+> perdia — a mesma indicação voltava para revisão para sempre. Na primeira
+> execução desta versão, o que tiver sobrado em `glossario_anterior.csv` é
+> recuperado automaticamente para o `correcoes.json`.
+
 <details>
 <summary>Prefere editar direto? (avançado)</summary>
 
@@ -166,21 +319,19 @@ Os mesmos dados ficam em `output/revisao_manual/`:
 
 - `imagens/NNN-2023_pgNNN.png` — a página escaneada
 - `glossario.csv` — abra num programa de planilha (Excel/LibreOffice), nunca
-  num editor de código: as colunas `EMENTA_MANUAL`, `AUTOR_ID_MANUAL` e
-  `CONFIRMAR` (as três que você preenche) vêm logo no início da linha;
-  consulte `IDS_DE_AUTOR.md` para os ids. Escreva `sim` em `CONFIRMAR` para
-  os avisos estruturais (número deduzido, 1 página) que não têm ementa/autor
-  para corrigir.
+  num editor de código: as colunas `NUMERO_MANUAL`, `EMENTA_MANUAL`,
+  `AUTOR_ID_MANUAL` e `CONFIRMAR` (as quatro que você preenche) vêm logo no
+  início da linha; consulte `IDS_DE_AUTOR.md` para os ids. Escreva `sim` em
+  `CONFIRMAR` para os avisos estruturais (número deduzido, 1 página) que não
+  têm ementa/autor para corrigir. A coluna `precisa` diz quais **daquelas
+  quatro** resolvem aquela linha específica — preencher outra não tira a
+  indicação da fila. A coluna `numero` é sempre o que o OCR leu (é a chave);
+  o número certo vai em `NUMERO_MANUAL`.
 - `REVISAO.md` — o mesmo conteúdo, só para leitura, com as imagens já
   incorporadas (abra o preview de Markdown do editor)
 
 `scripts/03_revisar.py` edita exatamente esse `glossario.csv` — os dois
-caminhos terminam no mesmo lugar.
-
-Um `glossario_anterior.csv` pode aparecer ao lado: é só uma cópia de
-segurança automática, feita sempre que o glossário é reescrito com correções
-suas já dentro — o sistema nunca volta a ler esse arquivo, é só para você
-recuperar algo manualmente se precisar. Pode apagar sem medo.
+caminhos terminam no mesmo lugar (o `config/correcoes.json`, veja acima).
 </details>
 
 Esse arquivo **é versionado**: dando commit nele, o mapeamento
@@ -241,6 +392,21 @@ Três armadilhas reais do documento, todas tratadas:
    a 295), a página ainda é reconhecida pela fórmula de abertura
    "vereador com assento nesta egrégia Casa Legislativa", e o número é deduzido
    pela posição na sequência — sempre marcado para você confirmar.
+4. **Número com separador de milhar.** A partir da indicação 1000 o papel
+   escreve `Indicação n° 1.405/2022`, com ponto — e `1 405`, com espaço,
+   quando o OCR troca o ponto. Os três formatos valem o mesmo número. (Até a
+   correção deste ciclo, o ponto fazia o cabeçalho inteiro deixar de ser
+   reconhecido: **toda** indicação de número ≥ 1000 caía em revisão manual
+   com "número deduzido", e os buracos ainda atrapalhavam a dedução dos
+   vizinhos.)
+5. **Número lido errado.** Quando o OCR destrói o cabeçalho, ele às vezes
+   entrega um número que *parece* válido. Casos reais do lote de 2021:
+   `Indicacao n° /617/2021` virou 617 (era 1617) e `INDICAcAO N°. iG l9 / 2021`
+   virou **9** (era 1629). Um número que não conversa com a sequência do lote
+   vai obrigatoriamente para conferência, e não serve de âncora para deduzir
+   os vizinhos. (Antes disso, o "9" tinha ementa e autor bons e foi
+   classificado como **pronto** — iria para o SAPL como *Indicação 9/2021*.
+   E ainda fez a indicação seguinte ser deduzida como "10" em vez de 1630.)
 
 ## Página sem OCR nenhum
 
@@ -281,18 +447,34 @@ Tudo tem de valer:
 
 - ementa entre 40 e 900 caracteres, com confiança ≥ 0,6
 - autor resolvido por alias, rapidfuzz ≥ 88 ou primeiro nome único
-- número lido do papel (não deduzido)
+- número lido do papel (não deduzido) **e coerente com a sequência do lote**
 - bloco com 2 páginas ou mais
+
+Ementa que **você** transcreveu não passa pelo critério de tamanho nem pelo de
+confiança: o critério existe para desconfiar do OCR, e ali não há OCR. Sem
+essa exceção, uma ementa curta legítima ("INDICA A PODA DE ÁRVORE NA RUA X")
+ficaria pedindo revisão para sempre, mesmo depois de transcrita certinho.
 
 Qualquer coisa fora disso vira revisão manual.
 
 ## Estrutura
 
 ```
+SAPL Parnamirim.bat        abre a interface com dois cliques
+gui/
+  app.py         a janela e as tres abas
+  tela_inicio.py PDFs + ano + data + o botao "Fazer tudo"
+  tela_revisao.py página escaneada ao lado dos campos
+  tela_sapl.py   envio ao SAPL, uma indicação por vez
+  sapl_worker.py a sessão do Firefox rodando em segundo plano
+  tarefas.py     roda o pipeline sem congelar a janela
+  estado.py      ano e data lembrados entre sessões
+  visual.py      cores e fontes
 config/
   sapl_ids.json            ids dos selects + aliases dos autores
   sapl_form.json           seletores dos campos do formulário
   aliases_aprendidos.json  nomes civis que você confirmou (cresce com o uso)
+  correcoes.json           ementa/autor/"já conferi" que você corrigiu — permanente
 src/
   textlayer.py   PDF -> texto por página, limpando timbre e carimbo
   ocr.py         OCR de reserva (Tesseract) para página sem texto embutido
@@ -303,14 +485,33 @@ src/
   ollama_client.py
   revisao.py     PNG das páginas duvidosas + glossário
   pipeline.py    orquestra tudo
+src/
+  datas.py       acha a página do carimbo "Lido na Sessão" (a data é manuscrita)
+  ambiente.py    confere e prepara o que falta na máquina
+  sapl.py        preenchimento do formulário (usado pela interface e pelo script)
 scripts/
+  interface.py          abre a interface gráfica
   00_diagnostico.py     confere o fatiamento
   01_extrair.py         pipeline completo
   02_preencher_sapl.py  abre o formulário preenchido
   03_revisar.py         formulário no navegador para a revisão manual
   instalar.ps1          prepara o ambiente numa máquina nova
   ver_pagina.py         depuração: texto cru vs limpo de uma página
+tests/
+  test_detect.py        leitura do número no cabeçalho (inclusive "1.405/2022")
+  test_ciclo_revisao.py a correção manual sobrevive às rodadas seguintes
 ```
+
+## Testes
+
+```bash
+.venv\Scripts\python -m unittest discover -s tests
+```
+
+Não precisa de PDF nem de rede: são as regras de detecção e o ciclo de
+revisão, que é onde um ajuste inocente quebra outra coisa em silêncio. Rode
+antes de commitar qualquer mudança em `src/detect.py`, `src/pipeline.py` ou
+`src/revisao.py`.
 
 ## Ambiente
 

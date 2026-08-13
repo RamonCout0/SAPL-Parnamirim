@@ -11,8 +11,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from pypdf import PdfReader
-
 from . import ocr
 from .config import RUIDO_LINHAS
 
@@ -73,6 +71,11 @@ def _limpar(texto: str) -> str:
 
 
 def extrair_paginas(caminho_pdf: str, mostrar_progresso: bool = False) -> list[Pagina]:
+    # Import aqui dentro, nao no topo: a classe Pagina e usada pelas regras de
+    # deteccao (detect.py), que assim podem ser importadas e testadas sem
+    # exigir as bibliotecas de PDF instaladas.
+    from pypdf import PdfReader
+
     leitor = PdfReader(caminho_pdf)
     total = len(leitor.pages)
     barra = None
