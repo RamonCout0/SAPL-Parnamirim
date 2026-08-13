@@ -20,6 +20,7 @@ ARQUIVO = CONFIG_DIR / "interface.json"
 class Estado:
     ano: int = 2023
     usar_ollama: bool = False
+    usar_force_pdfs: bool = False
     # NAO existe data aqui. A data de apresentacao e de cada indicacao, lida do
     # documento dela (ver src/datas.py) - guardar uma data "do lote" foi um
     # erro de modelagem: num PDF real de 196 indicacoes ha 48 datas

@@ -1,0 +1,567 @@
+{
+ "_doc": "Correcoes manuais das indicacoes, por 'numero/ano'. Este arquivo e a memoria permanente da revisao: o glossario.csv e regenerado a cada rodada, este aqui nunca e. O que estiver aqui vence qualquer deducao da maquina. Pode versionar no git - uma correcao feita por uma pessoa passa a valer para todas.",
+ "correcoes": {
+  "301/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "confirmado": true,
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Meio Ambiente e do Desenvolvimento Urbano SEMUR, A INSTALAÇÃO DE ECOPONTO - ESTAÇÃO DE ENTREGA VOLUNTÁRIA DE INSERVÍVEIS NO BAIRRO BELA PARNAMIRIM. Justifiõativa Os Ecopontos são locais de entrega voluntária de pequenos volumes de entulho (até 1 m3), grandes objetos (móveis, sofás, etc.), poda de árvore e resíduos recicláveis. Nessas estruturas o munícipe pode dispor o resíduo gratuitamente em caçambas distintas para cada tipo de material. Nesse sentido é de grande importância a instalação de Ecopontos em nosso município para o recolhimento correto destes materiais. Portanto, tratando-se tal matéria de relevante interesse à sociedade, peço que o Poder Executivo, junto à secretaria competente faça um esforço no sentido de atender à solicitação exposta na propositura"
+  },
+  "301/2023": {
+   "atualizado_em": "2026-08-13T08:51:48",
+   "data": "08/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Meio Ambiente e do Desenvolvimento Urbano SEMUR, A INSTALAÇÃO DE ECOPONTO - ESTAÇÃO DE ENTREGA VOLUNTÁRIA DE INSERVÍVEIS NO BAIRRO BELA PARNAMIRIM."
+  },
+  "302/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "confirmado": true,
+   "ementa": "ao Chefe do Executivo Municipal, Excelentissimo Senhor :Rosano Taveira da Cunha, extensivo a Secretaria de Obras Públicas - SEMOP, A REITERAÇÃO DAS INDICAÇÕES 236/2018, 277/2021 E 1.235/2021, NA QUAL SOLICITA QUE SEJA REALIZADO UM ESTUDO NO SENTIDO DE VIABILIZAR A CONSTRUÇÃO DE UM GINÁSIO POLIESPORTIVO ,Q BAIRRO CAJUPIRANGA. IFIC4TWA A presente proposição visa proporcionar um local de divertimento e lazer, devidamente estruturado, objetivando a tranquilidade e segurança da nossa comunidade. O ginásio poliesportivo será também um ponto de encontro de todos os moradores do bairro Cajupiranga, além de ser palco de eventos esportivos, será também utilizado para a realização de eventos culturais, festividades e muitos outros. Portanto, em virtude dos aclames da população, solicitamos que o executivo determine as providências cabíveis, para que esta obra de grande relevância para o bairro supracitado seja realizada"
+  },
+  "302/2023": {
+   "atualizado_em": "2026-08-13T08:51:17",
+   "data": "08/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentissimo Senhor :Rosano Taveira da Cunha, extensivo a Secretaria de Obras Públicas - SEMOP, A REITERAÇÃO DAS INDICAÇÕES 236/2018, 277/2021 E 1.235/2021, NA QUAL SOLICITA QUE SEJA REALIZADO UM ESTUDO NO SENTIDO DE VIABILIZAR A CONSTRUÇÃO DE UM GINÁSIO POLIESPORTIVO ,Q BAIRRO CAJUPIRANGA."
+  },
+  "303/2023": {
+   "atualizado_em": "2026-08-13T08:50:44",
+   "data": "09/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha, extensivo à Secretaria Municipal de Serviços Urbanos — Semsur, que realize reparo na Boca de Lobo localizada na Rua Severino Tavares de Farias, no bairro de Cidade Verde/Nova Parnamirim"
+  },
+  "304/2023": {
+   "atualizado_em": "2026-08-13T08:50:21",
+   "data": "09/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Prefeito Sr. Rosano Taveira Da Cunha e à Secretaria Municipal de Obras Públicas e Saneamento - SEMOP, que seja realizada, a operação tapa buraco, na Rua José Nascimento Filho em frente ao Residencial São Vicent , Iocalizada no bairro Nova Esperança."
+  },
+  "305/2023": {
+   "atualizado_em": "2026-08-13T08:49:51",
+   "data": "08/03/2023",
+   "ementa": "indicação 1439/2021 a Empresa Brasileira de Correios e Telégrafos (ECT), estender a prestação de serviço aos bairros de Bela Vista e Encanto Verde, essa propositura tem o objetivo de ampliar os serviços postais prestados pela ECT no município de Parnamirim/RN"
+  },
+  "306/2023": {
+   "atualizado_em": "2026-08-13T08:49:42",
+   "data": "09/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Obras Públicas e Saneamento - SEMOP, a pavimentação asfáltica da Rua Mahatma Gandhi, Bairro Santa Tereza nesta cidade"
+  },
+  "307/2023": {
+   "atualizado_em": "2026-08-13T08:49:31",
+   "data": "09/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Obras Públicas e Saneamento - SEMOP, a pavimentação asfáltica da Rua Campo Limpo, Bairro Cajupiranga nesta cidade"
+  },
+  "308/2023": {
+   "atualizado_em": "2026-08-13T08:49:24",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Obras Públicas e Saneamento - SEMOP, a pavimentação asfáltica da Rua Campo dos Horizontes, Bairro Cajupiranga nesta cidade"
+  },
+  "309/2023": {
+   "atualizado_em": "2026-08-13T08:49:10",
+   "data": "09/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a 3 Secretaria Municipal de Limpeza ? Urbana - SELIM, SOLICITA A INSTALAÇÃO DE CONTAINER, PRÓXIMO A LANCHONETE DOS TAXISTAS E A PASSARELA, SITUADA NA BR 101, BAIRRO EMAÚS."
+  },
+  "310/2023": {
+   "atualizado_em": "2026-08-13T08:48:52",
+   "data": "09/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Exmo. Sr. Rosano Taveira da Cunha extensivo à Secretaria Municipal de Educação — SME, que encaminhe um agente de portaria ou porteiro para a Escola Municipal Poeta Luiz Guimarães, em Nova Parnamirim"
+  },
+  "311/2023": {
+   "atualizado_em": "2026-08-13T08:48:35",
+   "data": "09/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Obras Públicas e Saneamento - SEMOP, a reiteração das indicações 802/2013, 365/2018, 515/2019 e 1.268/2021, proposta por este vereador, na qual solicita a PAVIMENTAÇÃO ASFÁLTICA DA RUA JOVINO PEREIRA DA SILVA, BAIRRO VALE DO SOL"
+  },
+  "312/2023": {
+   "atualizado_em": "2026-08-13T08:48:22",
+   "data": "09/03/2023",
+   "ementa": "indicação 983/2021 ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Saúde - SESAD, o estudo de viabilidade para implantação de uma Unidade Básica de Saúde (UBS) no bairro Parque das Árvores, MUNICÍPIO DE PARNAMIRIM/RN"
+  },
+  "313/2023": {
+   "atualizado_em": "2026-08-13T08:48:00",
+   "data": "09/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Saúde - SESAD, a conclusão da climatização dos consultórios da Unidade Básica de Saúde Marcondes Bezerra em Nova Esperança, Município de Parnamirim/RN"
+  },
+  "314/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "confirmado": true,
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha, que realize a atualização na legislação municipal que trata da carga -horária dos professores. $ JUSTIFXÇATIVA 0 p1ei'9~ü~Y\"áçY`~:~d~ em vista que a carga horária dos pro±iss°ionai f' do....,ma°gsstério_ prevista na Lei municipal atualmente, por mis que garanta ao servidor uma composição da jornada de trabalho de 2/3 (dois terços) destinadas à interação com'` os estudantes, bem como, no mínimo, 1/3 (um terço) das horas .emanescentes destinadas a atividades extraclasse, não representa a realidade vigente e a necessidade dos professores. É importante destacar, que hoje, nossos profissionais do magistério desempenham jornada diversa da prevista em Lei, mas que satisfaz a necessidade determinada na Lei de Diretrizes e Bases da Educação, no qué concerne ao quantitativo de horas-aulas, 800h (oitocentas horas) no mínimo, por ano, e 200 (duzentos) dias letivos, além de manter a boa qualidade de ensino. GAMARA MUNICIPAL DE Facebook.com/camaramunicipaldeparnamirim"
+  },
+  "314/2023": {
+   "atualizado_em": "2026-08-13T09:12:55",
+   "autor_id": 23,
+   "confirmado": true,
+   "data": "09/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha, que realize a atualização na legislação municipal que trata da carga -horária dos professores."
+  },
+  "315/2023": {
+   "atualizado_em": "2026-08-13T08:46:28",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Poder Executivo Municipal (Exmo. Sr. Prefeito Rosano Taveira da Cunha), extensivo à Secretaria Municipal de Educação e Cultura (SEMEC), à Secretaria Municipal de Administração e Recursos Humanos (SEARH) e à Secretaria Municipal de Planejamento e Finanças (SEPLAF), que, respeitosamente, unam esforços e destinem recursos de modo a viabilizar a REVITALIZAÇÃO DA FACHADA da Escola Municipal e Centro de Formação Profissional Joana Alves de Lima, localizada no Bairro de Cajupiranga, neste Município"
+  },
+  "316/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "confirmado": true,
+   "ementa": "ao Chefe do Poder Executivo Municipal (Exmo. Sr. Prefeito Rosano Taveira da Cunha), extensivo à Secretaria Municipal de Educação e Cultura (SEMEC) e à Secretaria Municipal de Planejamento e Finanças (SEPLAF), e à Secretaria Municipal de Administração e Recursos Humanos (SEARH), que reúna esforços, destine recursos e adote providências no sentido de viabilizar a manutenção dos APARELHOS AR CONDICIONADOS instalados na Escola Municipal e Centro de Formação Profissional Joana Alves de Lima, localizada no Loteamento Sonho Verde j o de Cajupiranga, neste Município"
+  },
+  "316/2023": {
+   "atualizado_em": "2026-08-13T09:12:48",
+   "confirmado": true,
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Poder Executivo Municipal (Exmo. Sr. Prefeito Rosano Taveira da Cunha), extensivo à Secretaria Municipal de Educação e Cultura (SEMEC) e à Secretaria Municipal de Planejamento e Finanças (SEPLAF), e à Secretaria Municipal de Administração e Recursos Humanos (SEARH), que reúna esforços, destine recursos e adote providências no sentido de viabilizar a manutenção dos APARELHOS AR CONDICIONADOS instalados na Escola Municipal e Centro de Formação Profissional Joana Alves de Lima, localizada no Loteamento Sonho Verde j o de Cajupiranga, neste Município"
+  },
+  "317/2023": {
+   "atualizado_em": "2026-08-13T08:46:09",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Poder Executivo Municipal (Exmo. Sr. Prefeito Rosano Taverra da Cunha), extensivo à Secretaria Municipal de Educação e Cultura (SEMEC), à Secretaria Municipal de Administração e Recursos Humanos (SEARH) e à Secretaria Municipal de Planejamento e Finanças (SEPLAF), que, respeitosamente, unam esforços e destinem recursos de modo a viabilizar e equipar uma NOVA SALA DE RECURSOS MULTIFUNCIONAIS para a Escola Municipal e Centro de Formação Profissional Joana Alves de Lima, localizada no Bairro de Cajupiranga, neste Município"
+  },
+  "318/2023": {
+   "atualizado_em": "2026-08-13T08:46:00",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Poder Executivo Municipal (Exmo. Sr. Prefeito Rosano Taveira da Cunha), extensivo à Secretaria Municipal de Educação e Cultura (SEMEC), à Secretaria Municipal de Segurança, Defesa Social e Mobilidade Urbana (SESDEM), à Secretaria Municipal de Planejamento e Finanças (SEPLAF), e à Secretaria Municipal de Administração e Recursos Humanos (SEARH), que, respeitosamente, unam esforços e destinem recursos de modo a viabilizar a INSTALAÇÃO DE CERCAS ELÉTRICAS E/OU CONCERTINAS na Escola Municipal e Centro de Formação Profissional Joana Alves de Lima, localizada no Loteamento Sonho Verde, Bairro de Cajupiranga, neste Município"
+  },
+  "319/2023": {
+   "atualizado_em": "2026-08-13T08:44:22",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Poder Executivo Municipal (Exmo. Sr. Prefeito Rosano Taveira da Cunha), extensivo à Secretaria Municipal de Educação e Cultura (SEMEC), à Secretaria Municipal de Administração e Recursos Humanos (SEARH) e à Secretaria Municipal de Planejamento e Finanças (SEPLAF), que, respeitosamente, unam esforços e destinem recursos de modo a viabilizar e equipar um LABORATÓRIO DE INFORMÁTICA para a Escola Municipal e Centro de Formação Profissional Joana Alves de Lima, localizada no Loteamento Sonho Verde, Bairro de Cajupiranga, neste Município"
+  },
+  "320/2023": {
+   "atualizado_em": "2026-08-13T08:44:05",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Poder Executivo Municipal (Exmo. Sr. Prefeito Rosano Taveira da Cunha), extensivo à Secretaria Municipal de Educação e Cultura (SEMEC), à Secretaria Municipal de Administração e Recursos Humanos (SEARH), à Secretaria Municipal de Planejamento e Finanças (SEPLAF), e à Secretaria Municipal de Obras Públicas e Saneamento (SEMOP), que, respeitosamente, adote providências no sentido de viabilizar uma REFORMA GERAL NA REDE ELÉTRICA da Escola Municipal e Centro de Formação Profissional Joana Alves de Lima, localizada no Loteamento Sonho Verde, Bairro de Cajupiranga, neste Município"
+  },
+  "321/2023": {
+   "atualizado_em": "2026-08-13T08:43:42",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Serviços Urbanos, A INDICAÇÃO N° 1332/2022, QUE OBJETIVA QUE SEJA CRIADO UM PLANO EMERGENCAL DE CONTIGÊNCIA PARA DRENAGEM URBANA NO MUNICÍPIO DE PARNAMIRIM/RN, A FIM DE MITIGAR OS TRANSTORNOS CAUSADOS AO MUNICÍPES DURANTE O PERÍODO CHUVOSO"
+  },
+  "322/2023": {
+   "atualizado_em": "2026-08-13T08:43:33",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha, extensivo a Secretaria Municipal De Mobilidade Urbana — SESDEM, intensificar a ronda da Guarda Municipal no conjunto Parque Industrial, no bairro de Emaus nesta cidade"
+  },
+  "323/2023": {
+   "atualizado_em": "2026-08-13T08:43:25",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha, extensivo a Secretaria Municipal De Mobilidade Urbana — SESDEM, solicitar estudo técnico para viabilização de lombadas e placas de sinalização na R. Luis Jeronimo Bezerra, no bairro de Emaus, nesta cidade"
+  },
+  "324/2023": {
+   "atualizado_em": "2026-08-13T08:43:14",
+   "data": "22/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha, extensivo a Secretaria Municipal De Mobilidade Urbana — SESDEM, instalação de câmeras de monitoramento na Estação Jardim Aeroporto, no conjunto Parque Industrial, no bairro de Emaus nesta cidade"
+  },
+  "325/2023": {
+   "atualizado_em": "2026-08-13T08:43:03",
+   "data": "22/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha, extensivo a Secretaria Municipal De Mobilidade Urbana — SESDEM, instalação de câmeras de monitoramento na Av. Rio Nilo, nas proximidades do terminal de ônibus no conjunto Parque Industrial, no bairro de Emaus nesta cidade"
+  },
+  "326/2023": {
+   "atualizado_em": "2026-08-13T08:42:13",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a Secretária Municipal de Serviços Urbanos e Secretaria Municipal de Obras Públicas e Saneamento, A INDICAÇÃO N` 587/2022 QUE VISA A CONTRUÇÃO DE UMA PRAÇA COM CAMINHÚDROMO, COM QUADRA DE BEACH TÉNIS E BEACH VOLEI, NA ÁREA SITUADA ENTRE NA RUA SERRA DO ARAPUÃ, SERRA DO CUNHAÚ, SERRA DOS MILAGRES, SERRA DAS FLORES, NOVA PARNAMIRIM, PARNAMIRIM/RN"
+  },
+  "327/2023": {
+   "atualizado_em": "2026-08-13T08:41:52",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Obras, A INDICAÇÃO N° 803/2021, COM FITO DA CONSTRUÇÃO DE UMA PRAÇA ENTRE A AV. GASTÃO MARIZ DE FARIA, RUA DA JABUTICABEIRA E RUA ALGAROBA, NO BAIRRO DE NOVA PARNAMIRIM (CIDADE VERDE)"
+  },
+  "328/2023": {
+   "atualizado_em": "2026-08-13T08:41:32",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Serviços Urbanos, a reabertura do Horto Municipal para acolhimento de animais de grande porte em situação de abandono e maus-tratos"
+  },
+  "329/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "confirmado": true,
+   "ementa": "ao Chefe Do Poder Executivo Senhor Rosano'\" Taveira. da Cunha, e extensivo Secretaria Municipal de Serviços Urbanos- SEMSUR: 72 \"Que seja instalado um abrigo passageiro na AV. Maria Lacerda Montenegro Life, bairro Nova Parn~nirim Vereador próximo ao condomínio Top na}nirim/rn\" L~ gó io de Freitas 'I, Parnamirim, 08 de março de 2023 Facebook.cam/camaramunicipaldeparnamirim"
+  },
+  "329/2023": {
+   "atualizado_em": "2026-08-13T08:41:20",
+   "autor_id": 44,
+   "data": "14/03/2023",
+   "ementa": "AO CHEFE DO PODER\nEXECUTIVO SENHOR ROSANO'\" TAVEIRA. DA CUNHA, E EXTENSIVO\nSECRETARIA MUNICIPAL DE SERVIÇOS URBANOS- SEMSUR:\n\n\nQue seja instalado um abrigo passageiro\nna AV. Maria Lacerda Montenegro\nLife, bairro Nova Parnanirim\nVereador\npróximo ao condomínio Top\nparnamirin/rn DO PODER\nEXECUTIVO SENHOR ROSANO'\" TAVEIRA. DA CUNHA, E EXTENSIVO\nSECRETARIA MUNICIPAL DE SERVIÇOS URBANOS- SEMSUR:\n\n\nQue seja instalado um abrigo passageiro\nna AV. Maria Lacerda Montenegro\nLife, bairro Nova Parnanirim\nVereador\npróximo ao condomínio Top\nparnamirin/rnao Chefe Do Poder Executivo Senhor Rosano'\" Taveira. da Cunha, e extensivo Secretaria Municipal de Serviços Urbanos- SEMSUR: 72 \"Que seja instalado um abrigo passageiro na AV. Maria Lacerda Montenegro Life, bairro Nova Parn~nirim Vereador próximo ao condomínio Top na}nirim/rn\" L~ gó io de Freitas 'I, Parnamirim, 08 de março de 2023 Facebook.cam/camaramunicipaldeparnamirim"
+  },
+  "330/2023": {
+   "atualizado_em": "2026-08-13T08:39:30",
+   "data": "14/03/2023",
+   "ementa": "ao chefe do Executivo Municipal Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretária Municipal de Serviços Urbanos - SEMSUR, para que seja realizada a substituição da academia da melhor idade localizada na Rua Praia de Pititinga ao lado da lagoa de captação Petra Kelly, no bairro de Nova Parnamirim, neste município"
+  },
+  "331/2023": {
+   "atualizado_em": "2026-08-13T08:39:20",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo S ano Taveira da Cunha, extensivo a Secretaria Municipal de Obras Públ ca.s - SEMOP, A REFORMA DA PONTE, SITUADA NA AVENIDA PAULO AFONSO, PRÓXIMO AO MARRADA ESPORT CLUB, BAIRRO VALE DO SoL."
+  },
+  "332/2023": {
+   "atualizado_em": "2026-08-13T08:38:40",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, Providências no sentido que seja divulgado no Diário Oficial junto com a publicação da Lei o vereador(a) que elaborou e criou"
+  },
+  "333/2023": {
+   "atualizado_em": "2026-08-13T08:38:15",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha e Extensivo a Secretaria Municipal de Saúde- SESAD, QUE SEJA; realizado a climatização (ar condicionados) em toda a Unidade de Saúde de Nalva Maria Bezerra. Localizada no bairro de Pium/Parnamirim/RN"
+  },
+  "334/2023": {
+   "atualizado_em": "2026-08-13T08:38:06",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a SEMOP, para que seja feito o serviço de tapa-buraco no cruzamento da rua Rosa Fernandes da Silva com rua São Miguel, no bairro de Nova Esperança"
+  },
+  "335/2023": {
+   "atualizado_em": "2026-08-13T08:37:56",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a SEMEC, para que seja desenvolvido estudo para ampliação das vagas de educação infantil na escola Centro Infantil Maria Dilma, no bairro Vale do Sol"
+  },
+  "336/2023": {
+   "atualizado_em": "2026-08-13T08:37:49",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a SESAD, para que seja desenvolvido estudo visando ampliar a equipe estratégica da UBS Santa Julia, no bairro de Nova Esperança"
+  },
+  "337/2023": {
+   "atualizado_em": "2026-08-13T08:37:42",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo ao GACIV, para que possa aderir a Coleta Seletiva Solidária, que institui a separação dos resíduos recicláveis descartados pelas instituições da administração pública e a sua destinação às associações e cooperativas dos catadores de materiais recicláveis"
+  },
+  "338/2023": {
+   "atualizado_em": "2026-08-13T08:36:47",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Obras Públicas (SEMOP), que viabilizem esforços para realizar o reparo do meio fio da Rua 28 de outubro, localizada no conjunto Parnamirim II, Parnamirim/RN"
+  },
+  "339/2023": {
+   "atualizado_em": "2026-08-13T08:36:36",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Obras e Saneamento (SEMOP) que viabilizem esforços para realizar \"operação tapa buraco\" na Rua Senador Duarte Filho localizada no bairro de Santos Reis, nesta cidade"
+  },
+  "340/2023": {
+   "atualizado_em": "2026-08-13T08:35:17",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha que realize a manutenção da Academia da Terceira Idade, localizada na Avenida Paulo Afonso, Conjunto Jockey Clube, Parnamirim/RN"
+  },
+  "341/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "ementa": "ao Presidente da"
+  },
+  "341/2023": {
+   "atualizado_em": "2026-08-13T08:34:58",
+   "data": "21/03/2023",
+   "ementa": "ao Presidente da Câmara Municipal de\nParnamirim, o Excelentíssimo Senhor Wolney França, a criação de um prêmio literário\npara as melhores redações dos alunos da rede de ensino público municipal."
+  },
+  "342/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "confirmado": true
+  },
+  "342/2023": {
+   "atualizado_em": "2026-08-13T08:33:56",
+   "data": "14/03/2023",
+   "ementa": "AO CHEFE DO EXECUTIVO MUNICIPAL,\nEXCELENTÍSSIMO SENHOR ROSANO TAVEIRA DA CUNHA E EXTENSIVO A SECRETARIA MUNICIPAL DE\nOBRAS PÚBLICAS - SEMOP, QUE SEJA; REALIZADO SERVIÇO DE DRENAGEM DA EXTENSãO DA RUA\nDAS ROSAS, PRÓXIMO DO RIO DE PIUM. LOCALIZADA NO BAIRRO DE PIUM /PARNAMIRIM/RN."
+  },
+  "343/2023": {
+   "atualizado_em": "2026-08-13T08:33:12",
+   "data": "21/03/2023",
+   "ementa": "Á INDICAÇÃO DE NOSSA AUTORIA, ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosc no Taveira da Cunha e Extensivo a Secretaria Municipal de Obras Públicas - SEMOP, QUE SEJA; realizado a recuperação de uma parte da pavimentação, por meio do método bripar da extensão rua Santa Luzia, próximo da Creche Santa Luzia. Localizada no bairro de Pium/PARNAMIRIM/RN"
+  },
+  "344/2023": {
+   "atualizado_em": "2026-08-13T08:32:49",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, QUE SEJA: criado a Secretaria da Juventude no município de parnamirm/rn"
+  },
+  "345/2023": {
+   "atualizado_em": "2026-08-13T08:32:27",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha, extensivo à Secretaria Municipal de Serviços Urbanos — Semsur, que realize reparo na Boca de Lobo localizada na Rua Campo Grande, no bairro de Santa Teresa"
+  },
+  "346/2023": {
+   "atualizado_em": "2026-08-13T08:31:29",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Obras Públicas e Saneamento - SEMOP, a pavimentação asfáltica da Rua Campo Bom, Bairro Cajupiranga nesta cidade"
+  },
+  "347/2023": {
+   "atualizado_em": "2026-08-13T08:31:05",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Meio Ambiente e do Desenvolvimento Urbano SEMUR, A INSTALAÇÃO DE MESAS DE JOGOS, COMO EXEMPLO DAMA, DOMINÓ E XADREZ, EM PRAÇAS PUBLICAS DO MUNICÍPIO."
+  },
+  "348/2023": {
+   "atualizado_em": "2026-08-13T08:29:50",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentissimo Senhor Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Segurança, Defesa Social e Mobilidade Urbana SESDEM, A NECESSIDADE DE SINALIZAR ÁREA PARA EMBARQUE E DESEMBARQUE DE ALUNOS E FRENTE À ESCOLA MUNICIPAL IVANIRA DE VASCONCELOS PAISINHO, SITUADA NA AVENIDA CASTOR VIERIAS RÉGIS, 424, BAIRRO COHABINAL"
+  },
+  "349/2023": {
+   "atualizado_em": "2026-08-13T08:28:13",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a SESDEM, para que seja realizada a implantação de uma rotatória com a sua devida sinalização de trânsito, tachões mais conhecidos como olho de gato ou tartaruga na rua Cruzeiro do Sul com a rua Edgar Dantas, no bairro de Santos Reis"
+  },
+  "350/2023": {
+   "atualizado_em": "2026-08-13T08:27:01",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a SESAD, para que seja feito a aquisição de um aparelho de Raio X odontológico, para UBS Dr. Silvino Lamartine, na rua Pires de Campos, no bairro de Passagem de Areia"
+  },
+  "351/2023": {
+   "atualizado_em": "2026-08-13T08:26:52",
+   "data": "14/03/2023",
+   "ementa": "a indicação de n°401/2022, de minha autoria, ao chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, e extensivo o Secretário Municipal de Serviços Urbanos, para que seja realizada a Implantação de Câmeras de Monitoramento na praça localizada entre as Ruas Parque Águas do Cuiabá e Parque Jucupiranga, localizada no bairro Nova Esperança, nesta Cidade"
+  },
+  "352/2023": {
+   "atualizado_em": "2026-08-13T08:26:42",
+   "data": "14/03/2023",
+   "ementa": "a Indicação N° 497/2022, de autoria própria, ao chefe do Executivo Municipal .. Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, extensivo ao Secretário Municipal de Obras Públicas e Secretário Municipal de Saúde, para que seja realizada a construção de uma Unidade Básica de Saúde (UBS) na área verde situada na Rua dos Perdizes, localizado no loteamento Encanto verde, nesta Cidade"
+  },
+  "353/2023": {
+   "atualizado_em": "2026-08-13T08:26:29",
+   "data": "14/03/2023",
+   "ementa": "a Indicação de n° 1353/2022, de autoria própria, ao chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, extensivo ao Secretário Municipal de Obras Públicas, a realização da pavimentação pelo método \"ASFALTO\" da Rua Abel Lira, no bairro de Pirangi do Norte (Distrito Litoral), neste Município"
+  },
+  "354/2023": {
+   "atualizado_em": "2026-08-13T08:26:13",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Obras Públicas e Saneamento - SEMOP, a pavimentação por método de bripar da Travessa Vereador Bandeira Junior, (antiga Kibon), Parque de Exposições nesta cidade"
+  },
+  "355/2023": {
+   "atualizado_em": "2026-08-13T08:26:02",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Obras Públicas e Saneamento - SEMOP, a pavimentação por método de bripar da Rua Luiz Gonzaga Bezerril, (antiga Kibon), Parque de Exposições nesta cidade"
+  },
+  "356/2023": {
+   "atualizado_em": "2026-08-13T08:25:51",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha extensivo à Secretaria Municipal de Saúde — Sesad, a criação de uma Coordenadoria de Promoção a saúde"
+  },
+  "357/2023": {
+   "atualizado_em": "2026-08-13T08:25:32",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Obras Públicas — Semop, que seja feito serviço de recuperação do calçamento da Rua Eduardo Rodrigues Medeiros — Cohabinal"
+  },
+  "358/2023": {
+   "atualizado_em": "2026-08-13T08:25:24",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Obras Públicas — Semop, que realize a pavimentação da Rua Lírio do Vale, localizada no bairro Bela Parnamirim"
+  },
+  "359/2023": {
+   "atualizado_em": "2026-08-13T08:25:13",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Limpeza Urbana — Selim, que realize serviço de limpeza e roçagem de mato em toda extensão da Rua Sebastiana Constância da Silva, localizado no bairro Santa Tereza"
+  },
+  "360/2023": {
+   "atualizado_em": "2026-08-13T08:25:03",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Saúde - SESAD, estudo para a implantação de mais uma equipe de estratégia de saúde da família na Unidade Básica de Saúde (UBS) Marcondes Bezerra no bairro de Nova Esperança, Município de Parnamirim/RN"
+  },
+  "361/2023": {
+   "atualizado_em": "2026-08-13T08:24:50",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Limpeza Urbana — SELIM, a instalação de lixeiras do tipo container, na Rua Jadi, (antiga Kibon), Bairro Parque de Exposições nesta cidade"
+  },
+  "362/2023": {
+   "atualizado_em": "2026-08-13T08:24:30",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Limpeza Urbana — SELIM, a instalação de lixeiras do tipo container, na Rua Vereador Bandeira Júnior, (antiga Kibon), Bairro Parque de Exposições nesta cidade"
+  },
+  "363/2023": {
+   "atualizado_em": "2026-08-13T08:24:13",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Obras Públicas e Saneamento — SEMOP e Companhia de Águas e Esgotos do RN — CAERN, Recuperação de Tampa de Esgoto na Avenida Francisco Tomás de Vasconcelos, bairro Boa Esperança"
+  },
+  "364/2023": {
+   "atualizado_em": "2026-08-13T08:24:02",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Saúde - SESAD. Realizar serviços de Pintura interna e externa da Unidade Básica Reginaldo Fernandes de Oliveira, bairro Vale do Sol"
+  },
+  "365/2023": {
+   "atualizado_em": "2026-08-13T08:23:47",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Saúde - SESAD. Realizar serviços de consertar o ar condicionado da sala de curativos na Unidade Básica Reginaldo Fernandes de Oliveira, bairro Vale do Sol"
+  },
+  "366/2023": {
+   "atualizado_em": "2026-08-13T09:12:30",
+   "data": "22/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Saúde - SESAD. Realizar serviço de instalação de Ar Condicionado da recepção da Unidade Básica Reginaldo Fernandes de Oliveira, bairro Vale do Sol"
+  },
+  "367/2023": {
+   "atualizado_em": "2026-08-13T09:12:17",
+   "data": "22/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Saúde - SESAD. Realizar a troca do bebedouro na recepção da Unidade Básica Reginaldo Fernandes de Oliveira, bairro Vale do Sol"
+  },
+  "368/2023": {
+   "atualizado_em": "2026-08-13T09:12:09",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha e Extensivo a Secretaria Municipal de Educação e Cultura — SEMEC e a Secretaria Municipal de Segurança, Defesa Social e Mobilidade Urbana - SESDEM para que seja providenciada a instalação das Câmeras de Monitoramentos na Praça José Aranha Rego no conjunto Parque dos Eucaliptos, no bairro de Nova Parnamirim, neste Município"
+  },
+  "369/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "autor_id": 28,
+   "ementa": "ao Chefe do Executivo Municipal, Excelentissimo Prefeito Sr. Rosano Taveita 4a Cunha e extensivo à Secretaria Municipal de Meio Ambiente e do Desenvolvimento Urbano; - SEMUR, o serviço de poda, na Rua Pedro Nunes Ferreira, 193 situada na bairro de Santos beis. A presente indicação busca atender à reivindicação dos inúmeros pedidos dos moradores daquela localidade, para que seja feita a poda, dificultando o bem-estar dos moradores da rua citada. Esperando no atendimento do pleito, antecipadamente agradeço"
+  },
+  "369/2023": {
+   "atualizado_em": "2026-08-13T09:15:02",
+   "autor_id": 28,
+   "confirmado": true,
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentissimo Prefeito Sr. Rosano Taveita 4a Cunha e extensivo à Secretaria Municipal de Meio Ambiente e do Desenvolvimento Urbano; - SEMUR, o serviço de poda, na Rua Pedro Nunes Ferreira, 193 situada na bairro de Santos beis."
+  },
+  "370/2023": {
+   "atualizado_em": "2026-08-13T09:11:45",
+   "data": "14/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Prefeito Sr. Rosano Tavei/a da Cunha, e extensivo às Secretaria Municipal de Limpeza Urbana- SELIM, que seja implantado Olcontêiner de lixo na Avenida Doutor Atila Paiva, 71, situado no bairro Cohabinal."
+  },
+  "371/2023": {
+   "atualizado_em": "2026-08-13T09:11:26",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Saúde SESAD, Aquisição de equipamentos para a Unidade Básica de Saúde (UBS) Julieta Azevedo de Melo localizada na rua Avenida Comandante Petit, 224 no bairro Centro, Município de parnamirim/rn"
+  },
+  "372/2023": {
+   "atualizado_em": "2026-08-13T09:09:52",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha e extensivo à Controladoria Geral do Município - CGM, a disponibilização de um canal de comunicação do tipo 0800 para que a população tenha acesso direto com o poder público com vistas a ter um maior acompanhamento e fiscalização das ações da administração pública"
+  },
+  "373/2023": {
+   "atualizado_em": "2026-08-13T08:22:41",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Saúde - SESAD, A REALIZAÇÃO DE UM ESTUDO PARA INSTALAÇÃO DE COBERTURA PARA OS VEÍCULOS DA SAÚDE QUE PERMANECEM ESTACIONADOS NAS UNIDADES HOSPITALARES DO MUNICÍPIO."
+  },
+  "374/2023": {
+   "atualizado_em": "2026-08-13T08:22:01",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rôsano Taveira da Cunha, extensivo a Secretaria Municipal de Serviços Urbanos - SEMSUR, A TROCA DE LÂMPADA, POIS ENCONTRA-SE QUEIMADA, NA RUA CAMINHO DAS FALÉSIAS, EM FRENTE A RESIDÊNCIA 566, BAIRRO <CAJUPIRANGA."
+  },
+  "375/2023": {
+   "atualizado_em": "2026-08-13T08:21:43",
+   "data": "21/03/2023",
+   "ementa": "ao chefe do Executivo Municipal Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretária Municipal de Serviços Urbanos - SEMSUR, para que seja realizada a substituição da academia da melhor idade localizada na Rua Epitácio Leopoldino de Oliveira, no bairro Rosa dos Ventos, neste município"
+  },
+  "376/2023": {
+   "atualizado_em": "2026-08-13T08:21:20",
+   "data": "21/03/2023",
+   "ementa": "ao chefe do Executivo Municipal Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretária Municipal de Serviços Urbanos - SEMSUR, para que seja realizada a substituição da academia da melhor idade localizada na Rua Joaquim Cipriano de Oliveira, Pracinha 1 Rosa dos Ventos, neste município"
+  },
+  "377/2023": {
+   "atualizado_em": "2026-08-13T08:16:54",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Saúde - SESAD, a melhoria das acomodações para os acompanhantes de parturientes da Maternidade Divino no Município de Parnamirim/RN"
+  },
+  "378/2023": {
+   "atualizado_em": "2026-08-13T08:16:35",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo ao Secretaria Municipal de Serviços Urbanos e a Secretaria Municipal de Meio Ambiente e Desenvolvimento Urbano, a Indicação n° 657/2021 que visa a Construção de um Cemitério Público para animais"
+  },
+  "379/2023": {
+   "atualizado_em": "2026-08-13T08:16:20",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Prefeito Sr. Rosano Taveira`Da Cunha e à Secretaria Municipal de Obras Públicas e Saneamento - SEMOP, que seja realizada a operação tapa buraco, na Rua Pedro David Norzinho situada no bairro Vale do Sol."
+  },
+  "380/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "autor_id": 28,
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Prefeito Sr:<Rosano Taveir d Cunha e extensivo à Secretaria Municipal de Meio Ambiente e do Desenvolvimento Urbano Semur, o serviço de poda, na da Rua Nova Perimetral, situada no bairro Vida Nova."
+  },
+  "380/2023": {
+   "atualizado_em": "2026-08-13T09:09:14",
+   "autor_id": 28,
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Prefeito Sr:<Rosano Taveir d Cunha e extensivo à Secretaria Municipal de Meio Ambiente e do Desenvgluimento Urbano -IS MUR, o serviço de poda, na da Rua Nova Perimetral, situada no bairro Vida Nova."
+  },
+  "381/2023": {
+   "atualizado_em": "2026-08-13T08:15:39",
+   "data": "22/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Prefeito Sr. Rosano Tave ra da Cunha, e extensivo à Secretaria Municipal de Limpeza Urbana — SELIM, o serviço de capinagem e limpeza, da Rua Nova Perimetral, situada no bairro Vida Nova."
+  },
+  "382/2023": {
+   "atualizado_em": "2026-08-13T09:09:01",
+   "data": "22/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha, se digne, ainda nesse exercício, fazer valer através da Secretaria Municipal de Educação, a implantação e prática na grade curricular e planos de aulas na disciplina de história ou conhecimento gerais, aplicação de conteúdo sobre a origem, formação e desenvolvimento de Parnamirim/RN nos seus aspectos histórico (história do município), turístico, geográfico, institucionais e seus símbolos como imprescindíveis à formação dos educandos"
+  },
+  "383/2023": {
+   "atualizado_em": "2026-08-13T09:08:50",
+   "data": "22/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo ao GCTI, SEMAS, para que seja desenvolvido estudo técnico para criação de um aplicativo para solicitar o pedido de carteira da pessoa idosa"
+  },
+  "384/2023": {
+   "atualizado_em": "2026-08-13T09:08:41",
+   "data": "23/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo ao GCTI, SESDEM, para que seja desenvolvido estudo técnico para criação de um aplicativo para solicitar o pedido de carteira de pessoas com deficiência"
+  },
+  "385/2023": {
+   "atualizado_em": "2026-08-13T09:08:27",
+   "data": "23/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a SESDEM, que seja realizada a revitalização na pintura da faixa de pedestre na Av. Comandante Petit, nas proximidades do CCPAR no bairro do Centro"
+  },
+  "386/2023": {
+   "atualizado_em": "2026-08-13T09:08:20",
+   "data": "28/03/2023",
+   "ementa": "ao Chefe do Poder Executivo, o Excelentíssimo Senhor Rosano Taveira da Cunha, extensivo a SESDEM, que seja realizada a revitalização na pintura da faixa de pedestre na rua Gilberto Roberto Gomes, nas proximidades do supermercado Alves, no bairro de Cajupiranga"
+  },
+  "387/2023": {
+   "atualizado_em": "2026-08-13T09:08:11",
+   "data": "05/04/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, e extensivo a Secretaria Municipal de Educação e Cultura - SEMEC, observado os dispositivos regimentais, o quanto segue: I - A implantação do pagamento de um sexto referente ao recesso escolar do ano letivo entre o primeiro e segundo semestre para os Coordenadores e Gestores das Escolas Municipais"
+  },
+  "388/2023": {
+   "atualizado_em": "2026-08-13T09:07:59",
+   "data": "28/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, e extensivo a Secretaria Municipal de Educação e Cultura - SEMEC, observado os dispositivos regimentais, o quanto segue: I - A redução da jornada de trabalho dos funcionários do Apoio Escolar das 40h para 30h semanais"
+  },
+  "389/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "autor_id": 33,
+   "ementa": "ao chefe do poder executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha o abono de falta de servidores públicos municipais e possibilidade de trabalho em home office enquanto perdurar a crise de segurança pública no RN"
+  },
+  "389/2023": {
+   "atualizado_em": "2026-08-13T09:06:01",
+   "confirmado": true,
+   "data": "22/03/2023",
+   "ementa": "ao chefe do poder executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha o abono de falta de servidores públicos municipais e possibilidade de trabalho em home office enquanto perdurar a crise de segurança pública no RN"
+  },
+  "390/2023": {
+   "atualizado_em": "2026-08-13T08:52:02",
+   "data": "21/03/2023",
+   "ementa": "a indicação de n° 20/2022, de minha autoria, ao chefe do Executivo Municipal Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, e extensivo o Secretário de Segurança, Defesa Social e Mobilidade Urbana, para que seja realizada a implantação de uma ciclovia, na Av. Felizardo Moura, nos bairros Jardim Planalto e Liberdade, nesta Cidade"
+  },
+  "391/2023": {
+   "atualizado_em": "2026-08-13T08:15:18",
+   "data": "21/03/2023",
+   "ementa": "a indicação de n° 155/2022, de minha autoria ao chefe do Executivo Municipal Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, e extensivo o Secretário Municipal de Obras Públicas, para que seja realizada a drenagem e pavimentação pelo método \"BRIPAR\" da Rua Macaíba, no Bairro de Nova"
+  },
+  "392/2023": {
+   "atualizado_em": "2026-08-13T08:13:32",
+   "data": "22/03/2023",
+   "ementa": "a indicação de n°935/2022, de minha autoria, ao chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha e extensivo ao Secretário Municipal de Segurança, Defesa Social e Mobilidade Urbana, a implantação do Sistema Viário Binário na Rua Rosa Fernandes da Silva e Rua Cícera Eugênio Carlos da Silva, uma para cada sentido, no bairro Nova Esperança, nesta Cidade"
+  },
+  "393/2023": {
+   "atualizado_em": "2026-08-13T08:13:01",
+   "data": "23/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Saúde — SESAD. A contratação de clínicas para realizar exames de alta complexidade no município de Parmarim"
+  },
+  "394/2023": {
+   "atualizado_em": "2026-08-13T08:12:22",
+   "data": "23/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da Cunha, extensivo a Secretaria Municipal de Serviços Urbanos - SEMSUR, Extensão de Rede de Iluminação Pública na Rua Júlio Fernandes de Macedo, bairro Nova Esperança"
+  },
+  "395/2021": {
+   "atualizado_em": "2026-08-13T08:07:20",
+   "autor_id": 42,
+   "ementa": "ao chefe\r\ndo Executivo Municipal, Excelentíssimo Senhor Prefeito Rosano Taveira da\r\nCunha, extensivo a Secretaria Municipal de Saúde — SESAD. A possibilidade\r\nde fazer uma chamada pública para a contratação de médicos especialistas\r\npara realização de cirurgias eletivas no Município de Parnamirim"
+  },
+  "395/2023": {
+   "atualizado_em": "2026-08-13T08:12:13",
+   "confirmado": true,
+   "data": "28/03/2023",
+   "ementa": "AO CHEFE DO EXECUTVI MUNICIPAL, EXCELENTÍSSIMO SENHOR PREFEITO ROSANO TAVEIRA DA CUNHA, EXTENSIVO A SECRETARIA MUNICIPAL DE SAÚDE - SESAD. A POSSIBILIDADE DE FAZER UMA CHAMADA PÚBLICA PARA A CONTRATAÇÃO DE MÉDICOS ESPECIALISTAS PARA REALIZAÇÃO DE CIRURGIAS ELETIVAS NO MUNICÍPIO DE PARNAMIRIM"
+  },
+  "396/2023": {
+   "atualizado_em": "2026-08-13T08:10:17",
+   "data": "21/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha e extensivo a Secretaria Municipal de Serviços Urbanos (SEMSUR) e que seja realizada a limpeza e manutenção das galerias de aguas fluviais, situada na Avenida DR. Luiz Antônio, bairro de Jardim Planalto, nesta cidade"
+  },
+  "397/2023": {
+   "atualizado_em": "2026-08-13T08:09:50",
+   "data": "28/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Excelentíssimo Senhor Rosano Taveira da Cunha, e através da Secretaria Municipal de Educação, que seja providenciado edição de um livro (tipo atlas) versando sobre a origem, formação e desenvolvimento de Parnamirim/RN com seus aspectos históricos, geográficos, institucionais e sócio-culturais para servir como referência às aplicações didático-pedagógicas a serem instituídas pela Secretaria Municipal de Educação em toda rede municipal de ensino"
+  },
+  "398/2023": {
+   "atualizado_em": "2026-08-13T08:09:11",
+   "data": "22/03/2023",
+   "ementa": "ao chefe do Executivo Municipal, Excelentíssimo Senhor Rosano Taveira da Cunha, e extensivo a Secretaria Municipal de Educação, ofertar como Disciplina da Parte Diversificada, a Língua Brasileira de Sinais - LIBRAS para crianças surdas e ouvintes matriculadas na Rede Municipal de Ensino do Município de Parnamirim, desde a Educação Infantil até o Ensino Fundamental"
+  },
+  "399/2023": {
+   "atualizado_em": "2026-08-13T08:08:47",
+   "data": "22/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha e extensivo à Secretaria Municipal de Educação — SME, providências quanto à placa de identificação da Escola Municipal Historiador Hélio Mamede Galvão, localizada no bairro Vale do Sol"
+  },
+  "400/2023": {
+   "atualizado_em": "2026-08-13T08:08:26",
+   "data": "22/03/2023",
+   "ementa": "ao Chefe do Executivo Municipal, o Sr. Rosano Taveira da Cunha, extensivo à Secretaria Municipal de Meio Ambiente e Urbanismo — Semur, a criação de um Manual Técnico de Podas de Árvores"
+  }
+ }
+}

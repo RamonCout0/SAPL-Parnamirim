@@ -7,6 +7,7 @@ pronta para o SAPL.
     python scripts\\01_extrair.py "caminho\\do.pdf"    processa so esse arquivo
     python scripts\\01_extrair.py --sem-ollama         rapido, so regex
     python scripts\\01_extrair.py --sem-pdfs           nao refatia os PDFs
+     python scripts\\01_extrair.py --force-pdfs        força recriar os PDFs mesmo que tenham sido gerados antes
 
 Coloque os PDFs em input\\ e rode sem argumento nenhum - e o jeito normal de
 usar. A cada execucao, o output e reconstruido do zero a partir do que estiver
@@ -69,12 +70,14 @@ def main() -> int:
         ano = int(args[args.index("--ano") + 1])
 
     try:
+        force_pdfs = "--force-pdfs" in args
         indicacoes = processar_pasta(
             origem,
             ano_padrao=ano,
             ano_forcado=ano_explicito,
             usar_ollama="--sem-ollama" not in args,
             gerar_pdfs="--sem-pdfs" not in args,
+            force_pdfs=force_pdfs,
         )
     except FileNotFoundError as e:
         print(f"\nERRO: {e}")

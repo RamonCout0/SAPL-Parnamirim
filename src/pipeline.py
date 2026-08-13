@@ -30,6 +30,7 @@ import csv
 import json
 import shutil
 import re
+from datetime import datetime
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -200,6 +201,7 @@ def processar_pasta(
     ano_forcado: bool = False,
     usar_ollama: bool = True,
     gerar_pdfs: bool = True,
+    force_pdfs: bool = False,
 ) -> list[Indicacao]:
     """Processa TODOS os PDFs de uma pasta e combina num unico resultado.
 
@@ -322,7 +324,7 @@ def processar_pasta(
         for ind in todas:
             por_origem.setdefault(ind.arquivo_origem, []).append(ind)
         for origem, inds in por_origem.items():
-            _fatiar_pdf(origem, inds, ja_gerados)
+            _fatiar_pdf(origem, inds, ja_gerados, force=force_pdfs)
         _salvar_gerados(ja_gerados)
 
     print("Gravando resultados ...")
@@ -637,7 +639,23 @@ def _classificar(ind: Indicacao) -> None:
 
 def _carregar_gerados() -> set[str]:
     if PDFS_GERADOS.exists():
-        return set(json.loads(PDFS_GERADOS.read_text(encoding="utf-8")))
+        try:
+            return set(json.loads(PDFS_GERADOS.read_text(encoding="utf-8")))
+        except (json.JSONDecodeError, OSError) as e:
+            # Arquivo corrompido ou inacessível: preserva o original como backup
+            # e substitui por um JSON vazio para nao travar o processamento.
+            try:
+                ts = datetime.now().strftime("%Y%m%d%H%M%S")
+                backup = PDFS_GERADOS.with_name(PDFS_GERADOS.name + f".corrupt-{ts}")
+                shutil.move(str(PDFS_GERADOS), str(backup))
+                print(f"AVISO: {PDFS_GERADOS.name} estava corrompido; movido para {backup.name}")
+            except Exception:
+                print(f"AVISO: problema ao mover {PDFS_GERADOS.name}, erro: {e}")
+            try:
+                PDFS_GERADOS.write_text("[]", encoding="utf-8")
+            except Exception:
+                pass
+            return set()
     return set()
 
 
@@ -648,7 +666,7 @@ def _salvar_gerados(chaves: set[str]) -> None:
 
 
 def _fatiar_pdf(
-    caminho_pdf: str, indicacoes: list[Indicacao], ja_gerados: set[str]
+    caminho_pdf: str, indicacoes: list[Indicacao], ja_gerados: set[str], *, force: bool = False
 ) -> None:
     leitor = None  # so abre o PDF grande se realmente precisar fatiar algo
     barra = Progresso(len(indicacoes), prefixo=f"  {Path(caminho_pdf).name[:30]:<30} ")
@@ -658,7 +676,7 @@ def _fatiar_pdf(
             ind.arquivo_pdf = str(destino)
             barra.avancar()
             continue
-        if ind.identificador in ja_gerados:
+        if not force and ind.identificador in ja_gerados:
             # Ja foi gerado antes e nao existe mais: voce apagou de
             # proposito depois de anexar no SAPL. Nao recriar.
             barra.avancar()

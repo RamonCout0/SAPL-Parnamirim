@@ -155,6 +155,12 @@ class TelaInicio(ttk.Frame):
                  "as sugestões nunca vão sozinhas para o SAPL)",
         ).pack(anchor="w", pady=(4, 0))
 
+        self.var_force_pdfs = tk.BooleanVar(value=self.app.estado.usar_force_pdfs)
+        ttk.Checkbutton(
+            caixa, variable=self.var_force_pdfs,
+            text="Forçar recriar PDFs (útil se arquivos foram apagados)",
+        ).pack(anchor="w", pady=(4, 0))
+
         ttk.Label(
             caixa, style="Ajuda.TLabel", wraplength=980, justify="left",
             text="A data de cada indicação é lida do próprio documento (a linha "
@@ -239,6 +245,7 @@ class TelaInicio(ttk.Frame):
             return processar_pasta(
                 INPUT_DIR, ano_padrao=ano, ano_forcado=forcado,
                 usar_ollama=ollama, gerar_pdfs=True,
+                force_pdfs=self.var_force_pdfs.get(),
             )
 
         self.tarefa = Tarefa(trabalho, self.fila)
