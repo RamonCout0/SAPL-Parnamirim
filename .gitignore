@@ -13,6 +13,7 @@
 # ementas, e PNG das paginas escaneadas (com assinaturas). Nao e codigo, e
 # conteudo - cada Camara gera o proprio a partir do seu PDF.
 output/
+!output/pdfs_gerados.json
 
 
 # ---------------------------------------------------------------------------
