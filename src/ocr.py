@@ -18,8 +18,6 @@ import os
 import shutil
 from pathlib import Path
 
-import pypdfium2 as pdfium
-
 from .config import RAIZ
 
 IDIOMA = "por"
@@ -98,6 +96,7 @@ def ocr_pagina(caminho_pdf: str, numero_pagina: int) -> str:
     if not disponivel():
         return ""
     try:
+        import pypdfium2 as pdfium
         import pytesseract
 
         doc = pdfium.PdfDocument(caminho_pdf)

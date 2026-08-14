@@ -17,6 +17,7 @@ manual. Nunca chuta.
 from __future__ import annotations
 
 import json
+import re
 import unicodedata
 from pathlib import Path
 
@@ -41,6 +42,28 @@ HONORIFICOS = {
     "profa", "sr", "sra", "senhor", "senhora", "vereador", "vereadora",
 }
 
+# Palavras do timbre, do cabecalho e do rodape - o que o OCR pega quando a
+# assinatura sai ilegivel. Nenhuma delas e nome de gente.
+#
+# Existe por causa de um estrago real: na 329/2023 o OCR leu "CAMARA'MUNICIPAL"
+# no lugar da assinatura, a correcao manual apontou Gustavo Negocio, e o
+# aprender() gravou isso como alias permanente. Como esse texto esta no timbre
+# de TODA indicacao, qualquer PDF com assinatura ilegivel passaria a resolver
+# para Gustavo Negocio com "certeza alta", origem alias-exato, sem nenhum
+# aviso. Nome civil se aprende da assinatura, nunca do papel timbrado.
+PALAVRAS_DE_TIMBRE = {
+    "camara", "municipal", "parnamirim", "estado", "rio", "grande", "norte",
+    "poder", "legislativo", "gabinete", "plenario", "mesa", "diretora",
+    "indicacao", "requerimento", "excelentissimo", "excelentissima",
+    "presidente", "sala", "sessoes", "sessao",
+}
+
+# Ligacoes que aparecem no meio de nome de gente E no meio de timbre, entao
+# nao contam para nenhum dos dois lados. "de", "da", "do" tem duas letras e ja
+# caem fora sozinhas; "das" e "dos" tem tres e passavam - era por "das" que
+# "Sala das Sessoes" escapava do filtro.
+CONECTIVOS = {"das", "dos", "com", "por", "para", "sob", "sobre", "seu", "sua"}
+
 
 def _normalizar(s: str) -> str:
     s = "".join(
@@ -56,6 +79,18 @@ def _primeiro_nome(s: str) -> str:
         if token not in HONORIFICOS and len(token) >= 3:
             return token
     return ""
+
+
+def _e_nome_de_gente(s: str) -> bool:
+    """Sobrou alguma palavra que possa ser nome de pessoa?
+
+    Corta em qualquer coisa que nao seja letra ou numero de proposito: o OCR
+    gruda palavras com apostrofo e pontuacao inventada ("CAMARA'MUNICIPAL"
+    vira um token so), e sem isso o timbre passava batido.
+    """
+    tokens = [t for t in re.split(r"[^a-z0-9]+", _normalizar(s)) if len(t) >= 3]
+    vazias = PALAVRAS_DE_TIMBRE | HONORIFICOS | CONECTIVOS
+    return any(t not in vazias for t in tokens)
 
 
 class ResolvedorAutor:
@@ -107,6 +142,11 @@ class ResolvedorAutor:
         chave = _normalizar(nome_documento)
         alvo = self.por_id.get(autor_id)
         if not chave or len(chave) < 6 or not alvo:
+            return False
+        # A correcao vale para ESTA indicacao de qualquer jeito (quem grava e
+        # o correcoes.json); o que nao vale e virar alias permanente quando o
+        # que o OCR leu era o timbre, e nao a assinatura.
+        if not _e_nome_de_gente(chave):
             return False
         if chave in self.aprendidos and self.aprendidos[chave]["id"] == autor_id:
             return False

@@ -2,12 +2,43 @@
 from __future__ import annotations
 
 import json
+import shutil
+import sys
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parent.parent
+
+def _raiz() -> Path:
+    """A pasta de trabalho: onde ficam input/, output/ e config/.
+
+    Rodando pelo codigo-fonte, e a raiz do repositorio. Rodando pelo .exe, e a
+    pasta ONDE O EXE ESTA - nao a de dentro do pacote. A diferenca importa:
+    o que esta dentro do .exe e somente leitura e some a cada atualizacao,
+    enquanto input/, output/ e as suas correcoes precisam ficar visiveis, do
+    lado do programa, para voce abrir e copiar arquivo quando quiser.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
+def _recursos() -> Path:
+    """De onde saem os arquivos que VEM junto com o programa (os modelos de
+    config). No .exe e a pasta interna do pacote; no codigo-fonte e a propria
+    raiz, entao os dois caminhos coincidem e nada e copiado."""
+    interno = getattr(sys, "_MEIPASS", None)
+    return Path(interno) if interno else _raiz()
+
+
+RAIZ = _raiz()
+RECURSOS = _recursos()
 CONFIG_DIR = RAIZ / "config"
 OUTPUT_DIR = RAIZ / "output"
 INPUT_DIR = RAIZ / "input"
+
+# Arquivos de configuracao que acompanham o programa. Os dois primeiros sao
+# tabelas fixas (ids do SAPL, seletores do formulario); os outros dois sao
+# trabalho do usuario e por isso sao criados vazios, nunca sobrescritos.
+_MODELOS_CONFIG = ["sapl_ids.json", "sapl_form.json", "aliases_aprendidos.json"]
 
 MARKDOWN_DIR = OUTPUT_DIR / "markdown"
 PDFS_DIR = OUTPUT_DIR / "pdfs"
@@ -52,6 +83,27 @@ RUIDO_LINHAS = [
     "www.camaradeparnamirim.com.br",
     "Fone: (84)",
 ]
+
+
+def preparar_pasta_de_trabalho() -> None:
+    """Primeira execucao do .exe: cria as pastas e traz os arquivos de
+    configuracao de dentro do pacote para o lado do programa.
+
+    So copia o que NAO existe. Um sapl_ids.json que voce ajustou, ou o
+    aliases_aprendidos.json que cresceu com o uso, nunca sao sobrescritos por
+    uma atualizacao do programa - seria apagar trabalho seu.
+    """
+    for d in (INPUT_DIR, OUTPUT_DIR, MARKDOWN_DIR, PDFS_DIR, CONFIG_DIR):
+        d.mkdir(parents=True, exist_ok=True)
+
+    if RECURSOS == RAIZ:
+        return  # rodando pelo codigo-fonte: origem e destino sao o mesmo lugar
+
+    for nome in _MODELOS_CONFIG:
+        destino = CONFIG_DIR / nome
+        origem = RECURSOS / "config" / nome
+        if not destino.exists() and origem.is_file():
+            shutil.copy2(origem, destino)
 
 
 def carregar_ids() -> dict:

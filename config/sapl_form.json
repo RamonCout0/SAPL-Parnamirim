@@ -21,11 +21,43 @@
       "select[name='apresentacao']",
       "#id_tipo_apresentacao",
       "select[name='tipo_apresentacao']"
+    ],
+    "data_apresentacao": [
+      "#id_data_apresentacao",
+      "input[name='data_apresentacao']"
+    ],
+    "texto_original": [
+      "#id_texto_original",
+      "input[name='texto_original']",
+      "input[type='file']"
     ]
   },
 
-  "_nao_preencher": [
-    "data_apresentacao - voce preenche na mao",
-    "texto_original - voce anexa o PDF de output/pdfs/ na mao"
-  ]
+  "_doc_salvar": "botao_salvar so e usado pelo envio automatico da aba 3. No modo normal o programa preenche e para, sem clicar em nada. O botao real do SAPL de Parnamirim e <input type=submit name=salvar value=Salvar id=submit-id-salvar onclick='this.form.submit();this.disabled=true;'> - por isso o id vem primeiro na lista. O onclick dele se desabilita depois do clique, entao um segundo clique nao acontece nem por acidente. Os seletores genericos abaixo sao rede de seguranca para outra versao do SAPL; se nenhum servir, rode --inspecionar e acrescente o certo aqui.",
+
+  "botao_salvar": [
+    "#submit-id-salvar",
+    "input[type='submit'][name='salvar']",
+    "button[type='submit'][name='salvar']",
+    "form input[type='submit']",
+    "form button[type='submit']",
+    "input[type='submit']",
+    "button[type='submit']"
+  ],
+
+  "_doc_erros": "Onde o SAPL escreve o motivo de ter recusado o cadastro. So serve para MOSTRAR o erro: quem decide se salvou ou nao e a saida do formulario (o SAPL leva para a materia criada quando aceita, e redesenha o mesmo formulario quando recusa).",
+
+  "erros": [
+    "ul.errorlist li",
+    ".alert-danger",
+    ".invalid-feedback"
+  ],
+
+  "_doc_url_sucesso": "Como e o endereco da materia depois de criada - usado so para anotar o numero dela no registro de envios. O grupo (\\d+) e o id da materia no SAPL.",
+
+  "url_sucesso": "/materia/(\\d+)",
+
+  "_doc_data": "A data de apresentacao e preenchida ANTES do autor, de proposito: o SAPL so libera as opcoes do select 'Autor' depois que a data existe, porque filtra por quem estava no mandato naquela data. Invertendo a ordem, o autor nunca preenche.",
+
+  "_doc_anexo": "texto_original e um input de arquivo. O PDF fatiado de output/pdfs/ e anexado por ele."
 }

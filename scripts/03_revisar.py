@@ -17,7 +17,6 @@ Quando acabar as pendentes, ele avisa e para sozinho. Depois e so rodar
 """
 from __future__ import annotations
 
-import csv
 import http.server
 import socketserver
 import sys
@@ -31,7 +30,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.config import carregar_ids
 from src.pipeline import GLOSSARIO, REVISAO_DIR
-from src.revisao import CABECALHO_GLOSSARIO
+# As regras de "o que falta nesta linha" e a gravacao ficam em src/revisao.py,
+# compartilhadas com a interface grafica - as duas telas de revisao decidem
+# igual porque e o mesmo codigo.
+from src.revisao import (
+    ROTULO_DE,
+    falta_em,
+    ja_revisada,
+    linhas_do_glossario,
+    precisa_de,
+    salvar_correcao,
+)
 
 IMAGENS_DIR = REVISAO_DIR / "imagens"
 PORTA_PREFERIDA = 8765
@@ -42,24 +51,7 @@ FILTRO_ANO: int | None = None
 
 
 def ler_linhas() -> list[dict]:
-    if not GLOSSARIO.exists():
-        return []
-    with open(GLOSSARIO, encoding="utf-8-sig", newline="") as f:
-        return list(csv.DictReader(f, delimiter=";"))
-
-
-def escrever_linhas(linhas: list[dict]) -> None:
-    with open(GLOSSARIO, "w", encoding="utf-8-sig", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=CABECALHO_GLOSSARIO, delimiter=";")
-        w.writeheader()
-        for linha in linhas:
-            w.writerow({k: linha.get(k, "") for k in CABECALHO_GLOSSARIO})
-
-
-def ja_revisada(linha: dict) -> bool:
-    return bool((linha.get("EMENTA_MANUAL") or "").strip()
-                or (linha.get("AUTOR_ID_MANUAL") or "").strip()
-                or (linha.get("CONFIRMAR") or "").strip())
+    return linhas_do_glossario(GLOSSARIO)
 
 
 def carregar_autores_ordenados() -> list[dict]:
@@ -109,6 +101,16 @@ PAGINA = """<!doctype html>
   .progresso {{ color: #b9c4dc; font-size: 0.85rem; }}
   .ok-tudo {{ text-align: center; padding: 60px 20px; }}
   .ok-tudo h2 {{ color: #1a7a3c; }}
+  .falta {{ background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b;
+           border-radius: 8px; padding: 10px 16px; margin-bottom: 20px;
+           font-size: 0.95rem; font-weight: 600; }}
+  .resolvida {{ background: #dcfce7; border: 1px solid #86efac; color: #166534;
+               border-radius: 8px; padding: 10px 16px; margin-bottom: 20px;
+               font-size: 0.95rem; font-weight: 600; }}
+  .navegar {{ display: flex; gap: 10px; align-items: center; margin-left: auto; }}
+  .navegar a {{ color: #1a2b4c; text-decoration: none; font-size: 0.9rem;
+               border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 14px; }}
+  .navegar a:hover {{ background: #eef2ff; }}
 </style>
 </head>
 <body>
@@ -123,8 +125,17 @@ PAGINA = """<!doctype html>
 </html>"""
 
 
-def render_item(linha: dict, restantes: int, total: int) -> str:
+def render_item(linha: dict, indice: int, fila: list[dict]) -> str:
+    # "numero" e sempre o que o OCR leu (a chave da correcao); o que vale e o
+    # corrigido, quando ja existe um.
     numero, ano = linha["numero"], linha["ano"]
+    numero_corrigido = (linha.get("NUMERO_MANUAL") or "").strip()
+    numero_mostrado = numero_corrigido or numero
+    aviso_numero = (
+        f"O OCR tinha lido {escape(numero)} nesta página."
+        if numero_corrigido and numero_corrigido != numero
+        else "Confira no papel — é este número que vai para o SAPL."
+    )
     imagens_html = "".join(
         f'<img src="/imagens/{escape(nome.strip())}" alt="página da indicação">'
         for nome in (linha.get("imagens") or "").split(",")
@@ -153,10 +164,12 @@ def render_item(linha: dict, restantes: int, total: int) -> str:
     conteudo_extra = f'<div class="referencia">{escape(sugestao_ementa)}</div>' if sugestao_ementa else ""
 
     motivo = linha.get("motivo") or ""
-    # Estes dois motivos nao tem ementa/autor para corrigir - so aparecem
-    # porque a maquina nao consegue confirmar sozinha o numero ou o verso.
+    precisa = precisa_de(linha)
+    falta = falta_em(linha)
+    # Este bloco nao tem ementa/autor para corrigir: so aparece porque a
+    # maquina nao consegue confirmar sozinha o numero ou o verso da folha.
     # Preencher os campos acima nao resolve; so o checkbox abaixo resolve.
-    eh_estrutural = ("numero deduzido" in motivo) or ("1 pagina" in motivo)
+    eh_estrutural = precisa == ["confirmar"]
     confirmado_atual = (linha.get("CONFIRMAR") or "").strip()
     marcado = " checked" if confirmado_atual else ""
     aviso_estrutural = (
@@ -166,8 +179,31 @@ def render_item(linha: dict, restantes: int, total: int) -> str:
         '</div>'
     ) if eh_estrutural else ""
 
+    if falta:
+        situacao = (
+            '<div class="falta">Ainda falta: '
+            + escape(", ".join(ROTULO_DE[p] for p in falta))
+            + "</div>"
+        )
+    else:
+        situacao = (
+            '<div class="resolvida">Esta indicação já está resolvida — '
+            "rode a extração de novo para ela entrar na fila do SAPL.</div>"
+        )
+
+    # Navegacao livre pela fila inteira, inclusive para tras. Antes so existia
+    # "a primeira pendente": nao havia como rever uma indicacao ja salva para
+    # conferir ou corrigir de novo.
+    anterior = f'<a href="/?i={indice - 1}">&larr; anterior</a>' if indice > 0 else ""
+    proxima = (
+        f'<a href="/?i={indice + 1}">próxima &rarr;</a>'
+        if indice + 1 < len(fila)
+        else ""
+    )
+
     conteudo = f"""
 <div class="motivo"><b>Por que está aqui:</b> {escape(motivo)}</div>
+{situacao}
 {aviso_estrutural}
 <div class="grade">
   <div class="col-imagens">
@@ -178,6 +214,18 @@ def render_item(linha: dict, restantes: int, total: int) -> str:
     <form method="post" action="/salvar">
       <input type="hidden" name="numero" value="{escape(numero)}">
       <input type="hidden" name="ano" value="{escape(ano)}">
+      <!-- As paginas dizem QUAL linha e esta quando duas foram lidas com o
+           mesmo numero impresso (o lote de 2022 tem duas "706"). Sem isto, salvar
+           a segunda gravava na primeira. -->
+      <input type="hidden" name="paginas" value="{escape(linha.get('paginas', ''))}">
+      <input type="hidden" name="i" value="{indice}">
+
+      <label for="numero_manual">Número da indicação</label>
+      <input type="text" id="numero_manual" name="numero_manual"
+             value="{escape(numero_mostrado)}" inputmode="numeric"
+             style="width:140px; font-size:1.1rem; padding:9px; text-align:center;
+                    border:1px solid #ccc; border-radius:6px;">
+      <div class="ajuda">{aviso_numero}</div>
 
       <label for="ementa">Ementa (confira olhando a imagem e corrija o que faltar)</label>
       <textarea id="ementa" name="ementa">{escape(ementa_inicial)}</textarea>
@@ -197,12 +245,20 @@ def render_item(linha: dict, restantes: int, total: int) -> str:
       <div class="botoes">
         <button type="submit" class="salvar">Salvar e continuar</button>
         <button type="submit" class="pular" formaction="/pular">Pular por enquanto</button>
+        <div class="navegar">
+          {anterior}
+          {proxima}
+        </div>
       </div>
     </form>
   </div>
 </div>
 """
-    progresso = f"Indicação {numero}/{ano} — faltam {restantes} de {total}"
+    pendentes = sum(1 for l in fila if not ja_revisada(l))
+    progresso = (
+        f"Indicação {numero}/{ano} — {indice + 1} de {len(fila)} "
+        f"({pendentes} ainda pendente(s))"
+    )
     return PAGINA.format(conteudo=conteudo, progresso=progresso)
 
 
@@ -211,9 +267,11 @@ def render_fim() -> str:
 <div class="ok-tudo">
   <h2>Tudo revisado!</h2>
   <p>Agora é só voltar ao terminal e rodar o passo de extração de novo:</p>
-  <p><code>.venv\\Scripts\\python scripts\\01_extrair.py "caminho\\do\\arquivo.pdf"</code></p>
+  <p><code>.venv\\Scripts\\python scripts\\01_extrair.py</code></p>
   <p>As indicações que você acabou de revisar aqui vão virar "pronto" e entrar
-  na fila do preenchimento automático.</p>
+  na fila do preenchimento automático. O que você escreveu fica guardado em
+  <code>config\\correcoes.json</code> e vale para sempre — não se perde nas
+  próximas rodadas.</p>
   <p>Pode fechar esta aba.</p>
 </div>
 """
@@ -260,40 +318,75 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(dados)
             return
 
-        linhas = ler_linhas()
-        pendentes = [l for l in linhas if not ja_revisada(l)]
-        if FILTRO_ANO is not None:
-            pendentes = [l for l in pendentes if l.get("ano") == str(FILTRO_ANO)]
-        if not pendentes:
+        fila = self.fila()
+        if not fila:
             self._html(render_fim())
             return
-        self._html(render_item(pendentes[0], len(pendentes), len(linhas)))
+
+        pedido = parse_qs(urlparse(self.path).query).get("i", [""])[0]
+        if pedido.isdigit() and int(pedido) < len(fila):
+            indice = int(pedido)
+        else:
+            # Sem "i" na URL: cai na primeira pendente. Se nao ha nenhuma,
+            # acabou de verdade.
+            indice = next(
+                (i for i, l in enumerate(fila) if not ja_revisada(l)), None
+            )
+            if indice is None:
+                self._html(render_fim())
+                return
+
+        self._html(render_item(fila[indice], indice, fila))
+
+    def fila(self) -> list[dict]:
+        """A lista INTEIRA (resolvidas tambem), na ordem do glossario.
+
+        A fila inclui as ja resolvidas de proposito: e o que permite voltar
+        numa indicacao para conferir ou corrigir o que voce mesmo escreveu.
+        """
+        linhas = ler_linhas()
+        if FILTRO_ANO is not None:
+            linhas = [l for l in linhas if l.get("ano") == str(FILTRO_ANO)]
+        return linhas
 
     def do_POST(self):
         tamanho = int(self.headers.get("Content-Length", 0))
         campos = parse_qs(self.rfile.read(tamanho).decode("utf-8"))
         numero = campos.get("numero", [""])[0]
         ano = campos.get("ano", [""])[0]
+        bruto = campos.get("i", [""])[0]
+        indice = int(bruto) if bruto.isdigit() else 0
+        caminho = urlparse(self.path).path
 
-        if urlparse(self.path).path == "/salvar":
+        if caminho == "/salvar":
             ementa = campos.get("ementa", [""])[0].strip()
             autor_id = campos.get("autor_id", [""])[0].strip()
             # Checkbox HTML so manda o campo quando marcado - a ausencia dele
             # no POST significa desmarcado, entao limpa a coluna nesse caso
             # (senao uma vez marcado ficaria marcado para sempre).
-            confirmar = "sim" if campos.get("confirmar", [""])[0].strip() else ""
-            linhas = ler_linhas()
-            for linha in linhas:
-                if linha["numero"] == numero and linha["ano"] == ano:
-                    if ementa:
-                        linha["EMENTA_MANUAL"] = ementa
-                    if autor_id:
-                        linha["AUTOR_ID_MANUAL"] = autor_id
-                    linha["CONFIRMAR"] = confirmar
-                    break
-            escrever_linhas(linhas)
+            confirmar = bool(campos.get("confirmar", [""])[0].strip())
+            numero_manual = campos.get("numero_manual", [""])[0].strip()
+            salvar_correcao(
+                GLOSSARIO, numero, ano,
+                paginas=campos.get("paginas", [""])[0].strip(),
+                numero_manual=numero_manual,
+                ementa=ementa, autor_id=autor_id, confirmado=confirmar,
+            )
 
-        self._redirecionar("/")
+        # "Pular" era um POST para /pular que nao era tratado em lugar nenhum:
+        # redirecionava para "/", que mostrava sempre a primeira pendente - a
+        # MESMA de antes. O botao existia e nao pulava nada. Agora os dois
+        # botoes avancam para a proxima pendente DEPOIS desta; nao havendo
+        # nenhuma adiante, volta para o inicio da fila.
+        self._redirecionar(self._proximo_destino(indice))
+
+    def _proximo_destino(self, indice: int) -> str:
+        fila = self.fila()
+        adiante = next(
+            (i for i, l in enumerate(fila) if i > indice and not ja_revisada(l)),
+            None,
+        )
+        return f"/?i={adiante}" if adiante is not None else "/"
 
 
 def escolher_porta() -> int:

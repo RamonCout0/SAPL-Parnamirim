@@ -30,14 +30,41 @@ from dataclasses import dataclass, field
 
 from .textlayer import Pagina
 
+# O numero da indicacao, com ou sem separador de milhar.
+#
+# BUG REAL, achado no lote de 2022: a partir da indicacao 1000 o papel escreve
+# "Indicação n° 1.405/2022", com ponto. A versao antiga desta regex exigia os
+# digitos colados - (\d{1,4}) - e o pedaco que pula o "n°" ([^0-9\n]) nao pode
+# consumir digito, entao nao havia como casar: o cabecalho INTEIRO era
+# ignorado. O efeito em cascata era o pior: sem cabecalho, a pagina so era
+# reconhecida pela formula de abertura, o numero saia DEDUZIDO pela sequencia,
+# e TODA indicacao de numero >= 1000 caia em revisao manual com "numero
+# deduzido". Pior ainda, esses buracos entravam no calculo do passo da
+# sequencia (ver inferir_numeros) e podiam deduzir numero errado para os
+# vizinhos. Aceitar o separador resolve na origem.
+#
+# A alternativa com separador vem primeiro de proposito: em "1405" ela falha e
+# o regex cai na segunda, mas em "1.405" a segunda sozinha pegaria so o "1".
+_NUMERO = r"\d{1,3}[.\s]\d{3}|\d{1,4}"
+
 # Tolerante ao OCR: "Indicação n°", "Indicaçno n°", "Indicação no", "Indicação n'".
 CABECALHO_RE = re.compile(
     r"INDICA[CÇ]"                # radical estavel
     r"[\wÇÃÁÂÀÉÊÍÓÔÕÚçãáâàéêíóôõú]{0,4}"  # ao / ão / no / cao ...
     r"\s*[Nn]?[^0-9\n]{0,10}"    # n° / nº / n' / no / n. / N.º
-    r"(\d{1,4})\s*[/\-]\s*(\d{4})",
+    rf"({_NUMERO})\s*[/\-]\s*(\d{{4}})",
     re.IGNORECASE,
 )
+
+
+def numero_do_cabecalho(bruto: str) -> int:
+    """"1.405" / "1 405" / "1405" -> 1405.
+
+    O separador de milhar e do papel; o numero da indicacao e um inteiro so.
+    Tudo que sai da CABECALHO_RE passa por aqui - nunca int() direto, senao
+    "1.405" viraria ValueError ou, pior, um numero truncado.
+    """
+    return int(re.sub(r"[.\s]", "", bruto))
 
 # Um cabecalho legitimo esta no topo da pagina. Mais fundo que isso e citacao
 # no corpo do texto ("REITERA a indicação n° 498/2022"), que NAO abre bloco.
@@ -80,6 +107,20 @@ MARCADORES_VERSO = [
 # Abaixo disso a pagina nao tem texto suficiente para ser uma 1a pagina.
 DENSIDADE_MINIMA_INICIO = 350
 
+# Quanto um numero pode destoar dos vizinhos sem virar suspeita.
+#
+# Buracos de verdade existem (indicacao que simplesmente nao esta no lote), mas
+# sao de poucas unidades. Erro de OCR em numero de quatro digitos erra por
+# centenas ou milhares - casos reais do lote de 2021:
+#   "Indicacao n° /617/2021"      -> leu 617,  era 1617  (erro de 1000)
+#   "INDICAcAO N°. iG l9 / 2021"  -> leu 9,    era 1629  (erro de 1620)
+# Uma folga de 20 passa longe dos buracos legitimos e pega esses de longe.
+TOLERANCIA_SEQUENCIA = 20
+
+# Quantos vizinhos olhar de cada lado. Dois, e nao um: com um so, um numero
+# bom encostado num numero ruim era acusado junto com ele.
+VIZINHOS_CONSIDERADOS = 2
+
 
 @dataclass
 class Inicio:
@@ -91,6 +132,9 @@ class Inicio:
     tem_cabecalho: bool
     tem_estrutura: bool
     numero_inferido: bool = False
+    # O numero foi lido, mas nao conversa com nenhum vizinho da sequencia -
+    # quase sempre OCR destruido no cabecalho. Ver marcar_suspeitos.
+    numero_suspeito: bool = False
 
 
 @dataclass
@@ -100,6 +144,7 @@ class Bloco:
     pagina_inicial: int
     pagina_final: int
     numero_inferido: bool = False
+    numero_suspeito: bool = False
     avisos: list[str] = field(default_factory=list)
 
     @property
@@ -161,7 +206,7 @@ def classificar_paginas(
             citacoes.append(
                 {
                     "pagina": p.numero,
-                    "numero": int(m.group(1)),
+                    "numero": numero_do_cabecalho(m.group(1)),
                     "ano": int(m.group(2)),
                     "motivo": motivo,
                     "trecho": p.texto[
@@ -187,7 +232,7 @@ def classificar_paginas(
             cab is not None
             and not estrutura
             and ultimo_numero is not None
-            and int(cab.group(1)) == ultimo_numero
+            and numero_do_cabecalho(cab.group(1)) == ultimo_numero
         )
 
         # Abre bloco se: tem cabecalho no topo (e nao for cartao-resumo), OU
@@ -197,18 +242,18 @@ def classificar_paginas(
             inicios.append(
                 Inicio(
                     pagina=p.numero,
-                    numero=int(cab.group(1)),
+                    numero=numero_do_cabecalho(cab.group(1)),
                     ano=int(cab.group(2)),
                     tem_cabecalho=True,
                     tem_estrutura=estrutura,
                 )
             )
-            ultimo_numero = int(cab.group(1))
+            ultimo_numero = numero_do_cabecalho(cab.group(1))
         elif eh_cartao_resumo:
             citacoes.append(
                 {
                     "pagina": p.numero,
-                    "numero": int(cab.group(1)),
+                    "numero": numero_do_cabecalho(cab.group(1)),
                     "ano": int(cab.group(2)),
                     "motivo": "cartao-resumo da mesma indicacao (nao abre bloco novo)",
                     "trecho": p.texto[:150].replace("\n", " "),
@@ -234,22 +279,85 @@ def classificar_paginas(
     return inicios, citacoes
 
 
-def inferir_numeros(inicios: list[Inicio], ano_padrao: int) -> list[Inicio]:
-    """Deduz os numeros perdidos pelo OCR a partir da posicao na sequencia.
-
-    O documento vem numa progressao regular (aqui, decrescente de 1 em 1).
-    Achamos o passo pelos vizinhos conhecidos e projetamos sobre os buracos.
-    """
-    conhecidos = [(i, ini.numero) for i, ini in enumerate(inicios) if ini.numero]
-    if len(conhecidos) < 2:
-        return inicios
-
+def _passo_da_sequencia(conhecidos: list[tuple[int, int]]) -> int:
+    """De quanto em quanto os numeros andam. Mediana, nao media: um numero
+    lido errado desloca a media e nao mexe na mediana."""
     passos = [
         (n2 - n1) / (i2 - i1)
         for (i1, n1), (i2, n2) in zip(conhecidos, conhecidos[1:])
         if i2 != i1
     ]
-    passo = round(statistics.median(passos)) or -1
+    return round(statistics.median(passos)) if passos else -1
+
+
+def marcar_suspeitos(inicios: list[Inicio]) -> list[Inicio]:
+    """Marca numeros lidos que nao conversam com NENHUM vizinho.
+
+    O caso real que motivou isto: o OCR leu "iG l9" onde estava "1.629" e o
+    sistema registrou a indicacao como numero 9. Ela passou em todos os
+    criterios (ementa boa, autor resolvido) e foi classificada como PRONTA -
+    ou seja, iria para o SAPL como "Indicacao 9/2021", um registro oficial
+    errado, sem ninguem ver. Numero fora da sequencia era so um aviso
+    decorativo que nada lia.
+
+    A regra e deliberadamente conservadora: so vira suspeita quem discorda de
+    TODOS os vizinhos da janela. Duas consequencias que importam:
+
+      - uma virada legitima de sequencia nao acusa nada. O lote real de 2021
+        tem uma (...792, 793, depois 601, 602...): cada um concorda com o seu
+        proprio lado.
+      - o vizinho ruim nao derruba o bom. Olhar so o vizinho colado fazia o
+        1628 ser acusado por estar ao lado do 9; com dois de cada lado ele
+        encontra o 1630 e se confirma.
+    """
+    conhecidos = [
+        (i, ini.numero) for i, ini in enumerate(inicios)
+        if ini.numero is not None and not ini.numero_inferido
+    ]
+    if len(conhecidos) < 3:
+        return inicios  # sequencia curta demais para saber o que e desvio
+
+    passo = _passo_da_sequencia(conhecidos)
+    for posicao, (i, numero) in enumerate(conhecidos):
+        vizinhos = (
+            conhecidos[max(0, posicao - VIZINHOS_CONSIDERADOS):posicao]
+            + conhecidos[posicao + 1:posicao + 1 + VIZINHOS_CONSIDERADOS]
+        )
+        distancias = [
+            abs(numero - (n + passo * (i - j))) for j, n in vizinhos
+        ]
+        if distancias and min(distancias) > TOLERANCIA_SEQUENCIA:
+            inicios[i].numero_suspeito = True
+    return inicios
+
+
+def inferir_numeros(inicios: list[Inicio], ano_padrao: int) -> list[Inicio]:
+    """Deduz os numeros perdidos pelo OCR a partir da posicao na sequencia.
+
+    O documento vem numa progressao regular, e o SENTIDO dela sai dos proprios
+    numeros - nada aqui supoe que o lote desce. Os dois sentidos aparecem de
+    verdade: o lote de 2023 vem de 300 a 201 (passo -1) e o de 2022 vem de 601
+    a 710 (passo +1). Achamos o passo pelos vizinhos conhecidos, com sinal, e
+    projetamos sobre os buracos.
+
+    Os numeros suspeitos ficam de fora das ancoras: um erro de leitura nao
+    pode contaminar as vizinhas. Foi o que aconteceu no lote de 2021 - o "9"
+    lido por engano virou ancora e a indicacao seguinte, cujo cabecalho o OCR
+    perdeu de vez, foi deduzida como "10" em vez de 1630.
+    """
+    conhecidos = [
+        (i, ini.numero) for i, ini in enumerate(inicios)
+        if ini.numero and not ini.numero_suspeito
+    ]
+    if len(conhecidos) < 2:
+        return inicios
+
+    # Sem "or -1": um passo zero significa que a sequencia nao progride, e
+    # nesse caso a deducao repete o numero do vizinho - o que o detector de
+    # numero repetido pega e manda para conferencia. Forcar -1 ali, como era
+    # antes, inventava uma sequencia decrescente que ninguem mediu: numero
+    # errado com cara de certo, que e o unico tipo que chega ao SAPL calado.
+    passo = _passo_da_sequencia(conhecidos)
 
     for i, ini in enumerate(inicios):
         if ini.numero is not None:
@@ -305,6 +413,7 @@ def montar_blocos(
                 pagina_inicial=ini.pagina,
                 pagina_final=fim,
                 numero_inferido=ini.numero_inferido,
+                numero_suspeito=ini.numero_suspeito,
                 avisos=avisos,
             )
         )

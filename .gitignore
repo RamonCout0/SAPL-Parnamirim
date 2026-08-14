@@ -13,6 +13,13 @@
 # ementas, e PNG das paginas escaneadas (com assinaturas). Nao e codigo, e
 # conteudo - cada Camara gera o proprio a partir do seu PDF.
 output/
+!output/pdfs_gerados.json
+# Excecao: o registro do que ja foi CADASTRADO no SAPL. E a unica trava contra
+# cadastrar a mesma indicacao duas vezes - se ficasse so na maquina de quem
+# enviou, outra pessoa clonando o repositorio comecaria achando que nada foi
+# enviado. Nao contem dado sigiloso: numero/ano e o endereco da materia
+# publica.
+!output/enviados.json
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +48,19 @@ __pycache__/
 # Pacote de portugues do Tesseract (~2 MB, binario) - baixado por
 # scripts\instalar.ps1, nao faz sentido versionar.
 tessdata/
+
+
+# ---------------------------------------------------------------------------
+# Programa gerado (scripts\gerar_exe.py)
+# ---------------------------------------------------------------------------
+# 170 MB de Python e bibliotecas empacotados: e resultado de build, se refaz
+# a qualquer momento com um comando. O que se versiona e o gerador.
+build/
+dist/
+*.spec
+
+# Preferencias da interface (ano e data do ultimo lote) - de cada maquina.
+config/interface.json
 
 
 # ---------------------------------------------------------------------------
