@@ -22,9 +22,9 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from src.config import OUTPUT_DIR
-from src.enviados import ENVIADOS, ler_enviados
+from src.enviados import DECLARADO, esquecer, ler_enviados, marcar_varias
 from src.revisao import CORRECOES
-from src.sapl import caminho_do_pdf, cortar_do_numero
+from src.sapl import antes_do_numero, caminho_do_pdf, cortar_do_numero
 
 from . import visual
 from .sapl_worker import SessaoSAPL
@@ -42,6 +42,9 @@ class TelaSAPL(ttk.Frame):
         self.comandos: queue.Queue = queue.Queue()
         self.sessao: SessaoSAPL | None = None
         self.item_atual: dict | None = None
+        # O que a ultima marcacao "ja enviei ate aqui" tirou da fila -
+        # e o que o botao Desfazer devolve.
+        self._ultimas_marcadas: list[str] = []
 
         self._montar()
         self.recarregar()
@@ -70,19 +73,7 @@ class TelaSAPL(ttk.Frame):
         # nada mais nesta tela deve ser usado antes de resolve-lo.
         self.caixa_velha = visual.aviso(self.corpo, "", "erro")
 
-        filtros = ttk.Frame(self.corpo)
-        filtros.pack(fill="x", pady=(p(10), 0))
-        ttk.Label(filtros, text="Começar do número:").pack(side="left")
-        self.var_inicio = tk.StringVar()
-        tk.Entry(filtros, textvariable=self.var_inicio, width=8,
-                 font=visual.FONTE_MEDIA, justify="center").pack(side="left", padx=p(8))
-        ttk.Label(filtros, style="Ajuda.TLabel",
-                  text="(em branco = da primeira)").pack(side="left")
-
-        self.botao = ttk.Button(filtros, text="Abrir o SAPL e preencher",
-                                command=self.comecar)
-        self.botao.pack(side="right")
-
+        self._montar_fila()
         self._montar_automatico()
 
         # O painel vai para BAIXO antes de a tabela ser criada. Assim, quando
@@ -148,6 +139,67 @@ class TelaSAPL(ttk.Frame):
         for nome, peso in self.pesos.items():
             minimo = self.tabela.column(nome, "minwidth")
             self.tabela.column(nome, width=minimo + round(sobra * peso / total))
+
+    def _montar_fila(self) -> None:
+        """De onde a fila comeca - e vale para os DOIS botoes de envio.
+
+        Antes este campo morava na mesma linha do "Abrir o SAPL e preencher", e
+        parecia coisa so do modo manual. Parecia, mas nunca foi: ele sempre
+        cortou a fila dos dois. Num lote que vai da 400 a 301, quem parou na
+        350 digitava 350, olhava o botao de automatico logo abaixo, e nao tinha
+        como saber que aquele numero valia para ele tambem - entao o automatico
+        ficava sem uso, porque parecia que ia recomecar da 400.
+
+        Agora o campo tem caixa propria, dizendo a quem serve, e o resultado do
+        corte aparece escrito ao lado enquanto se digita.
+        """
+        p = visual.px
+        caixa = ttk.LabelFrame(self.corpo, text=" Fila de envio ", padding=p(12))
+        caixa.pack(fill="x", pady=(p(10), 0))
+
+        linha = ttk.Frame(caixa)
+        linha.pack(fill="x")
+        ttk.Label(linha, text="Começar do número:",
+                  font=visual.FONTE_BOTAO).pack(side="left")
+        self.var_inicio = tk.StringVar()
+        tk.Entry(linha, textvariable=self.var_inicio, width=7,
+                 font=visual.FONTE_GRANDE, justify="center").pack(side="left", padx=p(8))
+        # Escrever no campo redesenha a faixa na hora: e a prova, na tela, de
+        # que o corte pegou - sem ela a pessoa so descobre depois de clicar.
+        self.var_inicio.trace_add("write", lambda *_: self._mostrar_faixa())
+
+        self.botao_ja_enviei = ttk.Button(
+            linha, text="Já enviei até aqui", command=self.marcar_ja_enviadas)
+        self.botao_ja_enviei.pack(side="left", padx=p(10))
+        # So aparece depois de uma marcacao, e some quando ela e desfeita.
+        self.botao_desfazer = ttk.Button(linha, text="Desfazer",
+                                         command=self.desfazer_marcacao)
+
+        self.botao = ttk.Button(linha, text="Abrir o SAPL e preencher",
+                                command=self.comecar)
+        self.botao.pack(side="right")
+
+        self.rotulo_faixa = visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left", text=""), margem=p(40))
+        self.rotulo_faixa.pack(anchor="w", fill="x", pady=(p(8), 0))
+
+    def _mostrar_faixa(self) -> None:
+        """Escreve, em portugues, o que os botoes de envio vao pegar."""
+        itens = self._selecionadas(calado=True)
+        if not itens:
+            self.rotulo_faixa.configure(
+                text="Nenhuma indicação na fila a partir desse número — "
+                     "confira o número ou deixe em branco.",
+                foreground=visual.VERMELHO)
+            return
+        primeira = f"{itens[0]['numero']}/{itens[0]['ano']}"
+        ultima = f"{itens[-1]['numero']}/{itens[-1]['ano']}"
+        fora = len(self.na_fila()) - len(itens)
+        self.rotulo_faixa.configure(
+            text=f"Vai da {primeira} até a {ultima} — {len(itens)} indicação(ões)"
+                 + (f", deixando {fora} de fora." if fora else ".")
+                 + "  Vale para os dois botões, o manual e o automático.",
+            foreground=visual.CINZA_TEXTO)
 
     def _montar_automatico(self) -> None:
         """A faixa do envio automatico: quantas, o botao, e o que ele faz."""
@@ -280,14 +332,25 @@ class TelaSAPL(ttk.Frame):
         estado = ["!disabled"] if na_fila else ["disabled"]
         self.botao.state(estado)
         self.botao_auto.state(estado)
+        self.botao_ja_enviei.state(estado)
         self._conferir_atualidade()
+        self._mostrar_faixa()
 
     @staticmethod
     def _situacao(envio: dict | None) -> str:
+        """O que a tabela mostra na coluna Situação.
+
+        "cadastrada" e "marcada por você" NAO sao a mesma coisa e nao podem
+        aparecer iguais: a primeira o programa fez e conferiu na tela do SAPL;
+        a segunda e a sua palavra de que ja tinha feito a mao. As duas tiram a
+        indicacao da fila, so uma tem testemunha.
+        """
         if not envio:
             return "● na fila"
         quando = str(envio.get("em") or "").replace("T", " ")[:16]
-        return f"✓ enviada {quando}".strip()
+        if envio.get("origem") == DECLARADO:
+            return "✓ marcada por você"
+        return f"✓ cadastrada {quando}".strip()
 
     def na_fila(self) -> list[dict]:
         """As prontas que ainda NAO foram cadastradas.
@@ -329,22 +392,111 @@ class TelaSAPL(ttk.Frame):
         return aviso
 
     def _preencher_todas(self) -> None:
-        self.var_quantidade.set(str(len(self.na_fila())))
+        # "todas" = todas as que os botoes vao pegar DE FATO, ja com o corte do
+        # "começar do número" aplicado. Contar a fila inteira aqui daria um
+        # numero maior do que existe e a pessoa acharia que ia enviar mais.
+        self.var_quantidade.set(str(len(self._selecionadas(calado=True))))
 
-    def _selecionadas(self) -> list[dict]:
+    def _selecionadas(self, calado: bool = False) -> list[dict]:
+        """A fila que os dois botoes de envio vao percorrer.
+
+        `calado` existe para o rotulo que se atualiza a cada tecla digitada:
+        ele chama isto o tempo todo e nao pode abrir caixa de aviso no meio da
+        digitacao (a pessoa digitando "350" passa por "3" e por "35").
+        """
         itens = self.na_fila()
         inicio = self.var_inicio.get().strip()
         if inicio.isdigit():
             cortado = cortar_do_numero(itens, int(inicio))
             if cortado:
                 return cortado
-            messagebox.showinfo(
-                "Número não encontrado",
-                f"Nenhuma indicação na fila a partir do número {inicio}. "
-                "Começando da primeira da lista.")
+            if not calado:
+                messagebox.showinfo(
+                    "Número não encontrado",
+                    f"Nenhuma indicação na fila a partir do número {inicio}. "
+                    "Começando da primeira da lista.")
+            return [] if calado else itens
         return itens
 
     # ---------------------------------------------------------------- acoes
+    def marcar_ja_enviadas(self) -> None:
+        """"Já enviei até aqui": tira da fila tudo que vem ANTES do número.
+
+        O problema que isto resolve: o programa so sabe das indicacoes que ELE
+        cadastrou. Todas as que voce mandou a mao - meses de trabalho - sao
+        invisiveis para ele, e voltavam para a fila em toda sessao. Digitar o
+        numero onde parou resolvia a sessao de hoje e nada mais: amanha a fila
+        voltava inteira, o placar contava errado e "todas" queria dizer "as 400
+        de novo".
+
+        Marcadas aqui, elas saem da fila para sempre - e ficam gravadas como
+        "declarado", nao como "cadastrado pelo programa", porque ninguem viu
+        isso acontecer: quem afirma e voce.
+        """
+        inicio = self.var_inicio.get().strip()
+        if not inicio.isdigit():
+            messagebox.showinfo(
+                "Digite o número primeiro",
+                "Escreva em 'Começar do número' a indicação em que você parou. "
+                "Tudo que vier antes dela na fila sai da lista.")
+            return
+
+        fila = self.na_fila()
+        if not cortar_do_numero(fila, int(inicio)):
+            messagebox.showinfo(
+                "Número não encontrado",
+                f"Não achei a indicação {inicio} na fila. Confira o número na "
+                "tabela abaixo.")
+            return
+
+        anteriores = antes_do_numero(fila, int(inicio))
+        if not anteriores:
+            messagebox.showinfo(
+                "Nada antes dela",
+                f"A {inicio} já é a primeira da fila — não há o que tirar.")
+            return
+
+        primeira = f"{anteriores[0]['numero']}/{anteriores[0]['ano']}"
+        ultima = f"{anteriores[-1]['numero']}/{anteriores[-1]['ano']}"
+        if not messagebox.askyesno(
+            "Marcar como já enviadas",
+            f"Vou tirar da fila {len(anteriores)} indicação(ões), da {primeira} "
+            f"até a {ultima}, por você já ter cadastrado essas no SAPL.\n\n"
+            "Elas param de aparecer na fila e o programa não vai mais oferecer "
+            "essas para envio.\n\nSe errar o número, dá para desfazer: o botão "
+            "'Desfazer' aparece logo depois.\n\nPode marcar?",
+        ):
+            return
+
+        identificadores = [f"{i['numero']}/{i['ano']}" for i in anteriores]
+        try:
+            marcar_varias(identificadores, origem=DECLARADO)
+        except (ValueError, OSError) as e:
+            messagebox.showerror("Não deu para marcar", str(e))
+            return
+
+        self._ultimas_marcadas = identificadores
+        self.botao_desfazer.pack(side="left", padx=visual.px(10))
+        self.recarregar()
+        self.app.atualizar_abas()
+
+    def desfazer_marcacao(self) -> None:
+        """Devolve para a fila o que a ultima marcacao tirou.
+
+        So desfaz o que VOCE declarou nesta sessao. O que o programa cadastrou
+        e confirmou na tela do SAPL nunca sai daqui por um clique - aquilo e
+        registro de fato consumado, nao anotacao.
+        """
+        if not self._ultimas_marcadas:
+            return
+        quantos = esquecer(self._ultimas_marcadas)
+        self._ultimas_marcadas = []
+        self.botao_desfazer.pack_forget()
+        self.recarregar()
+        self.app.atualizar_abas()
+        messagebox.showinfo("Desfeito",
+                            f"{quantos} indicação(ões) voltaram para a fila.")
+
     def comecar(self) -> None:
         self._abrir_sessao(enviar=0)
 

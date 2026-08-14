@@ -430,5 +430,104 @@ class TestRegistroDeEnviados(unittest.TestCase):
             mod_enviados.ler_enviados(self.arquivo)
 
 
+class TestRetomarDeOndeParou(unittest.TestCase):
+    """"Parei na 350 e as anteriores eu ja mandei a mao."
+
+    O programa so sabe das indicacoes que ELE cadastrou. Tudo que foi enviado a
+    mao - meses de trabalho, num lote que vai da 400 a 301 - e invisivel para
+    ele e voltava para a fila em toda sessao: o placar contava errado, e o
+    botao "todas" queria dizer "as 400 de novo".
+    """
+
+    FILA = [{"numero": n, "ano": 2023} for n in range(400, 300, -1)]
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.arquivo = self.tmp / "enviados.json"
+
+    def test_o_que_vem_antes_e_o_complemento_exato(self):
+        """As duas metades nao podem discordar: uma indicacao que fica de fora
+        da fila tem de estar na lista das marcadas, e vice-versa."""
+        for alvo in (400, 350, 301):
+            daqui = sapl.cortar_do_numero(self.FILA, alvo)
+            antes = sapl.antes_do_numero(self.FILA, alvo)
+            self.assertEqual(len(antes) + len(daqui), len(self.FILA))
+            self.assertEqual(antes + daqui, self.FILA)
+
+    def test_lote_decrescente_tira_os_numeros_maiores(self):
+        """Na fila de 400 a 301, parar na 350 significa que 400..351 ja foram."""
+        antes = sapl.antes_do_numero(self.FILA, 350)
+        self.assertEqual(antes[0]["numero"], 400)
+        self.assertEqual(antes[-1]["numero"], 351)
+        self.assertEqual(len(antes), 50)
+
+    def test_lote_crescente_tira_os_numeros_menores(self):
+        """No de 2022, que sobe de 601 a 710, "antes" e o contrario - e por
+        isso a regra e por POSICAO na fila, nunca por grandeza do numero."""
+        fila = [{"numero": n, "ano": 2022} for n in range(601, 711)]
+        antes = sapl.antes_do_numero(fila, 650)
+        self.assertEqual(antes[0]["numero"], 601)
+        self.assertEqual(antes[-1]["numero"], 649)
+
+    def test_primeira_da_fila_nao_tem_nada_antes(self):
+        self.assertEqual(sapl.antes_do_numero(self.FILA, 400), [])
+
+    def test_numero_fora_da_fila_nao_marca_nada(self):
+        """Digitar um numero que nao existe nao pode marcar a fila inteira como
+        enviada - seria apagar o trabalho todo com um clique."""
+        self.assertEqual(sapl.antes_do_numero(self.FILA, 250), [])
+
+    def test_marcar_tira_da_fila_e_registra_como_declarado(self):
+        antes = sapl.antes_do_numero(self.FILA, 350)
+        mod_enviados.marcar_varias(
+            [f"{i['numero']}/{i['ano']}" for i in antes],
+            origem=mod_enviados.DECLARADO, caminho=self.arquivo)
+
+        registro = mod_enviados.ler_enviados(self.arquivo)
+        self.assertEqual(len(registro), 50)
+        self.assertEqual(registro["400/2023"]["origem"], mod_enviados.DECLARADO)
+        # E o que interessa: a fila encolhe.
+        sobrou = [i for i in self.FILA
+                  if f"{i['numero']}/{i['ano']}" not in registro]
+        self.assertEqual(len(sobrou), 50)
+        self.assertEqual(sobrou[0]["numero"], 350)
+
+    def test_marcar_nao_rebaixa_o_que_o_programa_cadastrou(self):
+        """A 380 o programa cadastrou e conferiu na tela. Marcar "ja enviei ate
+        a 350" passa por cima dela - e nao pode apagar essa prova."""
+        mod_enviados.registrar_envio("380/2023", url="http://x/materia/9",
+                                     caminho=self.arquivo)
+        mod_enviados.marcar_varias(
+            [f"{i['numero']}/{i['ano']}" for i in sapl.antes_do_numero(self.FILA, 350)],
+            origem=mod_enviados.DECLARADO, caminho=self.arquivo)
+
+        guardado = mod_enviados.ler_enviados(self.arquivo)["380/2023"]
+        self.assertEqual(guardado["origem"], mod_enviados.AUTOMATICO)
+        self.assertEqual(guardado["url"], "http://x/materia/9")
+
+    def test_desfazer_devolve_para_a_fila(self):
+        """Um clique que tira 50 indicacoes da fila precisa de volta."""
+        chaves = [f"{i['numero']}/{i['ano']}"
+                  for i in sapl.antes_do_numero(self.FILA, 350)]
+        mod_enviados.marcar_varias(chaves, origem=mod_enviados.DECLARADO,
+                                   caminho=self.arquivo)
+
+        tirados = mod_enviados.esquecer(chaves, caminho=self.arquivo)
+
+        self.assertEqual(tirados, 50)
+        self.assertEqual(mod_enviados.ler_enviados(self.arquivo), {})
+
+    def test_uma_gravacao_so_para_o_lote_inteiro(self):
+        """Marcar 50 uma a uma reescreveria o arquivo 50 vezes; uma queda no
+        meio deixaria o registro pela metade, sem ninguem saber onde parou."""
+        chaves = [f"{i['numero']}/{i['ano']}"
+                  for i in sapl.antes_do_numero(self.FILA, 350)]
+        registros = mod_enviados.marcar_varias(
+            chaves, origem=mod_enviados.DECLARADO, caminho=self.arquivo)
+        self.assertEqual(len(registros), 50)
+        # Todas com o mesmo carimbo de hora: prova de que foi uma passada so.
+        self.assertEqual(len({r["em"] for r in registros.values()}), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

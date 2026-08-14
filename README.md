@@ -172,6 +172,25 @@ Se você corrigiu alguma coisa na aba 2 e ainda não processou o lote de novo, a
 aba 3 avisa em vermelho e **bloqueia o envio automático** — o que está na lista
 ainda é o texto antigo.
 
+### Retomar de onde você parou
+
+A caixa **Fila de envio** manda nos dois botões, o manual e o automático.
+
+- **Começar do número** corta a fila naquela indicação. O corte é pela posição
+  na lista, não pela grandeza do número: no lote de 2023, que desce de 400 a
+  301, digitar 350 tira as 400–351; no de 2022, que sobe de 601 a 710, digitar
+  650 tira as 601–649. Enquanto você digita, a frase abaixo do campo diz
+  exatamente o que vai acontecer (*"Vai da 350/2023 até a 301/2023 — 50
+  indicação(ões), deixando 50 de fora"*).
+- **Já enviei até aqui** tira essas anteriores da fila **de vez**. É para as
+  que você cadastrou à mão, antes de o programa existir ou fora dele: ele não
+  tem como saber delas sozinho, e sem isso elas voltavam para a fila toda
+  sessão, o contador ficava errado e *todas* queria dizer "as 400 de novo".
+  Elas aparecem na tabela como **"marcada por você"** — diferente de
+  **"cadastrada"**, que é o que o programa fez e conferiu na tela do SAPL. Se
+  errar o número, o botão *Desfazer* aparece ao lado e devolve todas para a
+  fila.
+
 ## A data de apresentação: onde ela está, e por que não dá para lê-la
 
 Duas coisas, as duas descobertas nos lotes reais:

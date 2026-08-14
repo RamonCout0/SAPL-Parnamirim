@@ -542,6 +542,22 @@ def cortar_do_numero(itens: list[dict], alvo: int) -> list[dict]:
     return []
 
 
+def antes_do_numero(itens: list[dict], alvo: int) -> list[dict]:
+    """O que vem ANTES da indicacao `alvo` na fila - o complemento exato de
+    cortar_do_numero.
+
+    E o que o botao "Já enviei até aqui" tira da fila. Definido como
+    complemento, e nao com uma comparacao propria (`numero > alvo`, digamos),
+    de proposito: assim as duas metades nunca discordam. Uma regra escrita
+    duas vezes e uma regra que um dia vai ser corrigida so num dos lugares - e
+    aqui isso significaria marcar como enviada uma indicacao que nao foi.
+    """
+    daqui = cortar_do_numero(itens, alvo)
+    if not daqui:
+        return []
+    return itens[:len(itens) - len(daqui)]
+
+
 def cortar_ate_numero(itens: list[dict], alvo: int) -> list[dict]:
     """A fila ATE a indicacao de numero `alvo`, inclusive.
 
