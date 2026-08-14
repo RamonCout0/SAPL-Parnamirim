@@ -214,6 +214,10 @@ def render_item(linha: dict, indice: int, fila: list[dict]) -> str:
     <form method="post" action="/salvar">
       <input type="hidden" name="numero" value="{escape(numero)}">
       <input type="hidden" name="ano" value="{escape(ano)}">
+      <!-- As paginas dizem QUAL linha e esta quando duas foram lidas com o
+           mesmo numero impresso (o lote de 2022 tem duas "706"). Sem isto, salvar
+           a segunda gravava na primeira. -->
+      <input type="hidden" name="paginas" value="{escape(linha.get('paginas', ''))}">
       <input type="hidden" name="i" value="{indice}">
 
       <label for="numero_manual">Número da indicação</label>
@@ -364,6 +368,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             numero_manual = campos.get("numero_manual", [""])[0].strip()
             salvar_correcao(
                 GLOSSARIO, numero, ano,
+                paginas=campos.get("paginas", [""])[0].strip(),
                 numero_manual=numero_manual,
                 ementa=ementa, autor_id=autor_id, confirmado=confirmar,
             )

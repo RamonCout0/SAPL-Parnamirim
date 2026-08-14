@@ -25,9 +25,10 @@ class Aplicacao(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("SAPL Parnamirim — Indicações")
-        self.geometry("1200x880")
-        self.minsize(1000, 680)
+        # Estilos primeiro: e la que a escala da tela e medida, e o tamanho da
+        # janela depende dela.
         visual.aplicar_estilos(self)
+        visual.dimensionar(self)
 
         # Primeira execucao do .exe: cria input/, output/ e traz os arquivos
         # de configuracao para o lado do programa. Sem isto, o programa abriria
@@ -44,7 +45,8 @@ class Aplicacao(tk.Tk):
         ).pack(fill="x")
 
         self.abas = ttk.Notebook(self)
-        self.abas.pack(fill="both", expand=True, padx=16, pady=16)
+        self.abas.pack(fill="both", expand=True,
+                       padx=visual.px(16), pady=visual.px(16))
 
         self.tela_inicio = TelaInicio(self.abas, self)
         self.tela_revisao = TelaRevisao(self.abas, self)
@@ -79,7 +81,11 @@ class Aplicacao(tk.Tk):
     def atualizar_abas(self) -> None:
         """Poe entre parenteses quanto falta em cada etapa."""
         pendentes = self.tela_revisao.pendentes()
-        prontas = len(self.tela_sapl.prontas)
+        # O que ainda FALTA enviar, nao o total de prontas: depois de uma
+        # sessao automatica, o numero da aba tem de cair. Contar as prontas
+        # deixaria "3. Enviar ao SAPL (196)" para sempre, mesmo com tudo
+        # cadastrado.
+        prontas = len(self.tela_sapl.na_fila())
         self.abas.tab(self.tela_revisao,
                       text=f"2. Conferir ({pendentes})" if pendentes else "2. Conferir")
         self.abas.tab(self.tela_sapl,
@@ -139,6 +145,9 @@ class Aplicacao(tk.Tk):
 
 
 def main() -> int:
+    # Antes de existir janela: e o unico momento em que o Windows aceita ser
+    # avisado de que este programa desenha em alta densidade sozinho.
+    visual.preparar_dpi()
     app = Aplicacao()
     app.mainloop()
     return 0

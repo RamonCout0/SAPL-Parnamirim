@@ -22,41 +22,49 @@ from .tarefas import escoar
 
 class TelaAmbiente(ttk.Frame):
     def __init__(self, pai, app):
-        super().__init__(pai, padding=20)
+        super().__init__(pai, padding=visual.px(20))
         self.app = app
         self.fila: queue.Queue = queue.Queue()
         self.trabalhando = False
         self.pecas: list[ambiente.Peca] = []
 
-        ttk.Label(self, text="Instalação", style="Titulo.TLabel").pack(anchor="w")
-        ttk.Label(
-            self, style="Ajuda.TLabel", wraplength=980, justify="left",
+        # A lista de pecas cresce conforme o que falta instalar, e o log de
+        # download vem embaixo: em janela baixa, o botao "Preparar o que falta"
+        # ficava fora da tela. Rolando, ele sempre esta a um scroll de
+        # distancia.
+        area, self.corpo = visual.area_rolavel(self)
+        area.pack(fill="both", expand=True)
+
+        ttk.Label(self.corpo, text="Instalação", style="Titulo.TLabel").pack(anchor="w")
+        visual.fluido(ttk.Label(
+            self.corpo, style="Ajuda.TLabel", justify="left",
             text="O que o programa precisa para funcionar. Nada aqui exige "
                  "abrir o prompt de comando: o que estiver faltando e puder "
                  "ser resolvido automaticamente, o botão abaixo resolve.",
-        ).pack(anchor="w", pady=(4, 16))
+        ), margem=visual.px(48)).pack(anchor="w", fill="x",
+                                      pady=(visual.px(4), visual.px(16)))
 
-        self.lista = ttk.Frame(self)
+        self.lista = ttk.Frame(self.corpo)
         self.lista.pack(fill="x")
 
-        botoes = ttk.Frame(self)
-        botoes.pack(fill="x", pady=(18, 0))
+        botoes = ttk.Frame(self.corpo)
+        botoes.pack(fill="x", pady=(visual.px(18), 0))
         self.botao_preparar = ttk.Button(botoes, text="Preparar o que falta",
                                          style="Principal.TButton",
                                          command=self.preparar)
         self.botao_preparar.pack(side="left")
         ttk.Button(botoes, text="Verificar de novo",
-                   command=self.verificar).pack(side="left", padx=8)
+                   command=self.verificar).pack(side="left", padx=visual.px(8))
         ttk.Button(botoes, text="Abrir a pasta do programa",
                    command=lambda: self.app.abrir_no_explorador(self._raiz())
                    ).pack(side="left")
 
-        caixa = ttk.LabelFrame(self, text=" Andamento ", padding=12)
-        caixa.pack(fill="both", expand=True, pady=(18, 0))
+        caixa = ttk.LabelFrame(self.corpo, text=" Andamento ", padding=visual.px(12))
+        caixa.pack(fill="both", expand=True, pady=(visual.px(18), 0))
         moldura = ttk.Frame(caixa)
         moldura.pack(fill="both", expand=True)
         self.log = tk.Text(moldura, height=8, font=visual.FONTE_MONO, wrap="word",
-                           bg="#111827", fg="#e5e7eb", relief="flat", padx=10, pady=8)
+                           bg="#111827", fg="#e5e7eb", relief="flat", padx=visual.px(10), pady=visual.px(8))
         self.log.pack(side="left", fill="both", expand=True)
         self.log.configure(state="disabled")
         rolagem = ttk.Scrollbar(moldura, orient="vertical", command=self.log.yview)
@@ -89,9 +97,9 @@ class TelaAmbiente(ttk.Frame):
         self.app.atualizar_abas()
 
     def _desenhar_peca(self, peca: ambiente.Peca) -> None:
-        cartao = tk.Frame(self.lista, bg=visual.BRANCO, padx=14, pady=10,
+        cartao = tk.Frame(self.lista, bg=visual.BRANCO, padx=visual.px(14), pady=visual.px(10),
                           highlightbackground=visual.CINZA_BORDA, highlightthickness=1)
-        cartao.pack(fill="x", pady=(0, 8))
+        cartao.pack(fill="x", pady=(0, visual.px(8)))
 
         simbolo, cor = {
             "ok": ("✓", "#166534"),
@@ -106,12 +114,14 @@ class TelaAmbiente(ttk.Frame):
         tk.Label(topo, text=peca.nome, bg=visual.BRANCO,
                  font=visual.FONTE_BOTAO).pack(side="left")
         tk.Label(topo, text=f"— {peca.detalhe}", bg=visual.BRANCO,
-                 fg=visual.CINZA_TEXTO, font=visual.FONTE).pack(side="left", padx=6)
+                 fg=visual.CINZA_TEXTO, font=visual.FONTE).pack(side="left", padx=visual.px(6))
 
         if peca.como_resolver:
-            tk.Label(cartao, text=peca.como_resolver, bg=visual.BRANCO,
-                     fg=visual.CINZA_TEXTO, font=visual.FONTE, justify="left",
-                     anchor="w", wraplength=900).pack(fill="x", padx=(30, 0))
+            visual.fluido(tk.Label(
+                cartao, text=peca.como_resolver, bg=visual.BRANCO,
+                fg=visual.CINZA_TEXTO, font=visual.FONTE, justify="left",
+                anchor="w"), margem=visual.px(70)
+            ).pack(fill="x", padx=(visual.px(30), 0))
 
     # ------------------------------------------------------------- preparar
     def preparar(self) -> None:

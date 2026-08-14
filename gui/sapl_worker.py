@@ -9,9 +9,23 @@ Como as duas conversam:
     interface  --comandos-->  thread   ("continuar", "proxima", "parar")
     interface  <--eventos---  thread   ("login", "preenchida", "fim", ...)
 
-A thread PARA e espera um comando depois de preencher cada indicacao. E de
-proposito: quem confere a tela, anexa o PDF e escreve a data e a pessoa. O
-programa nunca salva nada no SAPL sozinho.
+DOIS MODOS
+----------
+Sem cota (`enviar=0`), a thread preenche uma indicacao e PARA, esperando um
+comando. E o modo de sempre: quem confere a tela e salva e a pessoa.
+
+Com cota (`enviar=N`), ela tambem SALVA no SAPL, sem parar, ate somar N
+cadastros. Continua parando, e chamando voce, em qualquer um destes casos:
+
+  - a indicacao tem impedimento nos dados (ver sapl.impedimentos): correcao
+    sua que ainda nao chegou nela, ja cadastrada antes, sem data, sem autor,
+    sem o PDF para anexar;
+  - o preenchimento na tela deu falha ou deixou recado de atencao;
+  - o SAPL recusou o cadastro, ou nao deu para confirmar que ele aconteceu.
+
+Cada parada dessas devolve a decisao para voce e NAO consome a cota. Clicar em
+"Próxima" pula aquela indicacao (sem cadastrar) e o automatico segue nas
+seguintes; "Parar" encerra a sessao.
 """
 from __future__ import annotations
 
@@ -20,14 +34,28 @@ import threading
 import traceback
 
 from src import sapl
+from src.enviados import ler_enviados, registrar_envio
+from src.revisao import ler_correcoes
 
 
 class SessaoSAPL(threading.Thread):
-    def __init__(self, itens: list[dict], comandos: queue.Queue, eventos: queue.Queue):
+    def __init__(
+        self,
+        itens: list[dict],
+        comandos: queue.Queue,
+        eventos: queue.Queue,
+        enviar: int = 0,
+    ):
         super().__init__(daemon=True)
         self.itens = itens
         self.comandos = comandos
         self.eventos = eventos
+        # Quantas indicacoes ainda podem ser CADASTRADAS sozinhas. Conta so
+        # cadastro concluido: pular uma indicacao com problema nao gasta cota,
+        # senao "enviar 20" entregaria menos de 20 sem ninguem perceber.
+        self.cota = max(0, int(enviar or 0))
+        self.cota_inicial = self.cota
+        self.enviadas: list[str] = []
         self._parar = threading.Event()
 
     def parar(self) -> None:
@@ -67,6 +95,13 @@ class SessaoSAPL(threading.Thread):
         base = form["base_url"].rstrip("/")
         url_form = base + form["caminho_formulario"]
 
+        # Lidos uma vez por sessao: sao a memoria de quem ja foi cadastrada e
+        # do que voce corrigiu. O registro de enviados e reescrito a cada
+        # cadastro, mas a copia daqui basta - nada mais mexe nele enquanto a
+        # sessao roda.
+        correcoes = ler_correcoes()
+        enviados = ler_enviados()
+
         self.eventos.put(("abrindo",))
         sapl.PERFIL.mkdir(parents=True, exist_ok=True)
 
@@ -85,6 +120,10 @@ class SessaoSAPL(threading.Thread):
                     # janela que abriu. A sessao fica salva no perfil.
                     self.eventos.put(("login", pagina.url))
                     if self._esperar_comando() == "parar":
+                        # "fim" tambem quando se para aqui: e ele que devolve
+                        # os botoes da tela. Sem isto, parar no login deixava a
+                        # aba inteira desabilitada ate trocar de aba e voltar.
+                        self.eventos.put(("fim", 0, len(self.itens), 0))
                         return
                     pagina.goto(url_form, wait_until="domcontentloaded")
 
@@ -96,7 +135,28 @@ class SessaoSAPL(threading.Thread):
                 total = len(self.itens)
                 indice = 0
                 while indice < total and not self._parar.is_set():
+                    # Cota cumprida: a sessao automatica termina aqui. Seguir
+                    # preenchendo a proxima e esperando um clique seria pedir
+                    # atencao para uma tela que a pessoa nao pediu para ver.
+                    if self.cota_inicial and not self.cota:
+                        break
+
                     item = self.itens[indice]
+
+                    # Antes de qualquer clique: os dados desta indicacao
+                    # aguentam ir sozinhos? Conferir aqui, e nao depois de
+                    # preencher, evita deixar um formulario meio preenchido na
+                    # tela quando a resposta ja era "nao".
+                    travas = (sapl.impedimentos(item, correcoes, enviados)
+                              if self.cota else [])
+                    if travas:
+                        self.eventos.put(
+                            ("impedida", item, travas, indice + 1, total))
+                        if self._esperar_comando() == "parar":
+                            break
+                        indice += 1
+                        continue
+
                     try:
                         pagina = sapl.pagina_valida(nav, pagina)
                         pagina.goto(url_form, wait_until="domcontentloaded")
@@ -116,6 +176,34 @@ class SessaoSAPL(threading.Thread):
                         indice += 1
                         continue
 
+                    # O automatico so age com a tela limpa: nenhuma falha e
+                    # nenhum recado de atencao. Recado aqui nao e detalhe - e
+                    # "o autor nao fixou", "o anexo nao foi", coisas que viram
+                    # registro oficial errado se ninguem olhar.
+                    if self.cota and not falhas and not notas:
+                        try:
+                            salvou, recado, url = sapl.salvar(pagina, form)
+                        except PlaywrightError as e:
+                            salvou, recado, url = False, str(e).splitlines()[0], ""
+                        if salvou:
+                            identificador = f"{item['numero']}/{item['ano']}"
+                            # Grava no disco ANTES de qualquer outra coisa: se
+                            # o programa morrer no instante seguinte, a materia
+                            # ja existe no SAPL e o registro tem de existir
+                            # junto, senao a proxima sessao a cadastra de novo.
+                            enviados[identificador] = registrar_envio(
+                                identificador, url=url)
+                            self.enviadas.append(identificador)
+                            self.cota -= 1
+                            self.eventos.put(
+                                ("enviada", item, recado, indice + 1, total,
+                                 len(self.enviadas), self.cota))
+                            indice += 1
+                            continue
+                        # Nao salvou: a decisao volta para a pessoa, com o
+                        # motivo escrito junto das falhas da tela.
+                        falhas = list(falhas) + [f"não cadastrou: {recado}"]
+
                     self.eventos.put(
                         ("preenchida", item, falhas, notas, indice + 1, total))
                     comando = self._esperar_comando()
@@ -123,7 +211,7 @@ class SessaoSAPL(threading.Thread):
                         break
                     indice += 1
 
-                self.eventos.put(("fim", indice, total))
+                self.eventos.put(("fim", indice, total, len(self.enviadas)))
             finally:
                 try:
                     nav.close()

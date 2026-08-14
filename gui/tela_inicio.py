@@ -20,10 +20,18 @@ from .tarefas import Tarefa, escoar
 
 class TelaInicio(ttk.Frame):
     def __init__(self, pai, app):
-        super().__init__(pai, padding=20)
+        super().__init__(pai, padding=visual.px(20))
         self.app = app
         self.fila: queue.Queue = queue.Queue()
         self.tarefa: Tarefa | None = None
+
+        # Esta e a tela mais alta do programa: lista de arquivos, opcoes,
+        # botao e log pedem 763 pixels de altura. Nao cabe num notebook de
+        # 1366x768, e o que ficava de fora era justamente o "FAZER TUDO".
+        # Dentro da area rolavel nada some - e quando a janela e grande o
+        # suficiente, a barra nem aparece e o log estica como sempre esticou.
+        area, self.corpo = visual.area_rolavel(self)
+        area.pack(fill="both", expand=True)
 
         self._montar_arquivos()
         self._montar_opcoes()
@@ -33,7 +41,7 @@ class TelaInicio(ttk.Frame):
 
     # ------------------------------------------------------------------ PDFs
     def _montar_arquivos(self) -> None:
-        caixa = ttk.LabelFrame(self, text=" 1. PDFs para processar ", padding=14)
+        caixa = ttk.LabelFrame(self.corpo, text=" 1. PDFs para processar ", padding=visual.px(14))
         caixa.pack(fill="both", expand=False)
 
         colunas = ("arquivo", "tamanho")
@@ -49,11 +57,11 @@ class TelaInicio(ttk.Frame):
         self.lista.configure(yscrollcommand=rolagem.set)
 
         botoes = ttk.Frame(caixa)
-        botoes.pack(side="left", fill="y", padx=(14, 0))
+        botoes.pack(side="left", fill="y", padx=(visual.px(14), 0))
         ttk.Button(botoes, text="Adicionar PDFs...",
-                   command=self.adicionar).pack(fill="x", pady=(0, 6))
+                   command=self.adicionar).pack(fill="x", pady=(0, visual.px(6)))
         ttk.Button(botoes, text="Tirar da lista",
-                   command=self.remover).pack(fill="x", pady=(0, 6))
+                   command=self.remover).pack(fill="x", pady=(0, visual.px(6)))
         ttk.Button(botoes, text="Abrir a pasta",
                    command=self.abrir_pasta).pack(fill="x")
 
@@ -119,8 +127,8 @@ class TelaInicio(ttk.Frame):
 
     # --------------------------------------------------------------- opcoes
     def _montar_opcoes(self) -> None:
-        caixa = ttk.LabelFrame(self, text=" 2. Dados do lote ", padding=14)
-        caixa.pack(fill="x", pady=(16, 0))
+        caixa = ttk.LabelFrame(self.corpo, text=" 2. Dados do lote ", padding=visual.px(14))
+        caixa.pack(fill="x", pady=(visual.px(16), 0))
 
         linha = ttk.Frame(caixa)
         linha.pack(fill="x")
@@ -129,7 +137,7 @@ class TelaInicio(ttk.Frame):
         self.var_ano = tk.StringVar(value=str(self.app.estado.ano))
         tk.Spinbox(linha, from_=2000, to=2100, textvariable=self.var_ano, width=8,
                    font=visual.FONTE_GRANDE, justify="center").grid(
-            row=0, column=1, sticky="w", padx=(10, 30))
+            row=0, column=1, sticky="w", padx=(visual.px(10), visual.px(30)))
 
         # NAO existe campo de data aqui, de proposito: a data de apresentacao
         # e de CADA indicacao, nao do lote. Medido nos lotes reais: 48 datas
@@ -146,42 +154,44 @@ class TelaInicio(ttk.Frame):
             caixa, variable=self.var_forcar_ano,
             text="Usar este ano para todos os arquivos, mesmo os que têm o ano "
                  "no nome (ex.: ..._201@2023.pdf)",
-        ).pack(anchor="w", pady=(12, 0))
+        ).pack(anchor="w", pady=(visual.px(12), 0))
 
         self.var_ollama = tk.BooleanVar(value=self.app.estado.usar_ollama)
         ttk.Checkbutton(
             caixa, variable=self.var_ollama,
             text="Usar o Ollama para sugerir leituras difíceis (mais lento; "
                  "as sugestões nunca vão sozinhas para o SAPL)",
-        ).pack(anchor="w", pady=(4, 0))
+        ).pack(anchor="w", pady=(visual.px(4), 0))
 
         self.var_force_pdfs = tk.BooleanVar(value=self.app.estado.usar_force_pdfs)
         ttk.Checkbutton(
             caixa, variable=self.var_force_pdfs,
             text="Forçar recriar PDFs (útil se arquivos foram apagados)",
-        ).pack(anchor="w", pady=(4, 0))
+        ).pack(anchor="w", pady=(visual.px(4), 0))
 
-        ttk.Label(
-            caixa, style="Ajuda.TLabel", wraplength=980, justify="left",
+        visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left",
             text="A data de cada indicação é lida do próprio documento (a linha "
                  "do Plenário, no fim do texto) e aparece pronta para copiar na "
                  "hora do envio. Onde o OCR não deixou ler, você preenche na "
                  "aba de conferência.",
-        ).pack(anchor="w", pady=(10, 0))
+        ), margem=visual.px(40)).pack(anchor="w", fill="x",
+                                      pady=(visual.px(10), 0))
 
     # ----------------------------------------------------------------- acao
     def _montar_acao(self) -> None:
-        caixa = ttk.Frame(self)
-        caixa.pack(fill="x", pady=(18, 0))
+        caixa = ttk.Frame(self.corpo)
+        caixa.pack(fill="x", pady=(visual.px(18), 0))
         self.botao = ttk.Button(caixa, text="FAZER TUDO", style="Gigante.TButton",
                                 command=self.fazer_tudo)
         self.botao.pack(side="left")
-        self.rotulo_botao = ttk.Label(
-            caixa, style="Ajuda.TLabel", wraplength=620, justify="left",
+        self.rotulo_botao = visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left",
             text="Separa as indicações uma a uma, lê ementa e autor, gera um "
                  "PDF de cada e mostra o que precisar da sua conferência.",
-        )
-        self.rotulo_botao.pack(side="left", padx=18)
+        ), margem=visual.px(260))   # o botao GIGANTE ocupa a esquerda da linha
+        self.rotulo_botao.pack(side="left", fill="x", expand=True,
+                               padx=visual.px(18))
 
     def _atualizar_botao(self) -> None:
         tem_pdf = bool(list(INPUT_DIR.glob("*.pdf"))) if INPUT_DIR.exists() else False
@@ -193,13 +203,13 @@ class TelaInicio(ttk.Frame):
 
     # ------------------------------------------------------------ andamento
     def _montar_andamento(self) -> None:
-        caixa = ttk.LabelFrame(self, text=" 3. Andamento ", padding=14)
-        caixa.pack(fill="both", expand=True, pady=(18, 0))
+        caixa = ttk.LabelFrame(self.corpo, text=" 3. Andamento ", padding=visual.px(14))
+        caixa.pack(fill="both", expand=True, pady=(visual.px(18), 0))
 
         self.barra = ttk.Progressbar(caixa, mode="determinate", maximum=100)
         self.barra.pack(fill="x")
         self.status = ttk.Label(caixa, text="Pronto para começar.", style="Ajuda.TLabel")
-        self.status.pack(anchor="w", pady=(6, 8))
+        self.status.pack(anchor="w", pady=(visual.px(6), visual.px(8)))
 
         moldura = ttk.Frame(caixa)
         moldura.pack(fill="both", expand=True)
@@ -207,7 +217,7 @@ class TelaInicio(ttk.Frame):
         # valor maior, a caixa de log era a primeira coisa a ser cortada fora
         # da tela numa janela de 800px de altura.
         self.log = tk.Text(moldura, height=6, font=visual.FONTE_MONO, wrap="none",
-                           bg="#111827", fg="#e5e7eb", relief="flat", padx=10, pady=8)
+                           bg="#111827", fg="#e5e7eb", relief="flat", padx=visual.px(10), pady=visual.px(8))
         self.log.pack(side="left", fill="both", expand=True)
         self.log.configure(state="disabled")
         rolagem = ttk.Scrollbar(moldura, orient="vertical", command=self.log.yview)

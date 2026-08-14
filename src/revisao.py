@@ -216,6 +216,118 @@ def importar_do_glossario(
     return mudou
 
 
+def chave_da_correcao(numero, ano, paginas: str = "", ambigua: bool = False) -> str:
+    """Onde a correcao desta indicacao fica guardada no correcoes.json.
+
+    Normalmente "numero/ano", o numero LIDO pelo OCR - que nao muda entre
+    rodadas e por isso reencontra a correcao na rodada seguinte.
+
+    O problema: numero lido nao e unico. No lote de 2022, duas paginas
+    diferentes trazem "INDICAÇÃO N° 706/2022" impresso (a sequencia vai 706,
+    707, 706, 709 - o 708 nao existe), entao o arquivo tem DUAS "706". Com a
+    chave sendo so o numero, a correcao escrita para uma valia para as duas:
+    corrigir "esta aqui e a 708" renumerava tambem a 706 de verdade, e o lote
+    terminava com duas 708 - uma delas cadastrada em silencio, porque nada mais
+    reclamava dela.
+
+    Quando ha essa disputa, a chave ganha as paginas do bloco (que sao unicas
+    por definicao) e as duas passam a ter memoria propria. Quem nao disputa
+    nada continua com a chave de sempre, entao nenhuma correcao ja feita se
+    perde.
+    """
+    if ambigua and paginas:
+        return f"{numero}/{ano}@{paginas}"
+    return f"{numero}/{ano}"
+
+
+def correcao_de(
+    correcoes: dict[str, dict],
+    numero,
+    ano,
+    paginas: str = "",
+    ambigua: bool = False,
+) -> dict:
+    """A correcao desta indicacao. Da chave especifica para a geral.
+
+    Uma indicacao em disputa NUNCA cai na chave geral: aquela entrada serve
+    para duas indicacoes diferentes e nao da para saber de quem ela e. Melhor
+    a pessoa digitar de novo, uma vez, do que o programa escolher por ela.
+    """
+    if paginas:
+        achada = correcoes.get(f"{numero}/{ano}@{paginas}")
+        if achada is not None:
+            return achada
+    if ambigua:
+        return {}
+    return correcoes.get(f"{numero}/{ano}", {})
+
+
+def ambigua_no_glossario(linhas: list[dict], numero, ano) -> bool:
+    """Ha mais de uma linha pendente com este mesmo numero lido?
+
+    A tela de conferencia pergunta isto antes de salvar. Ela tem como saber
+    porque _marcar_numeros_repetidos manda as DUAS para conferencia - se so uma
+    aparecesse aqui, a disputa passaria despercebida bem na hora de gravar.
+    """
+    return sum(1 for l in linhas
+               if l.get("numero") == str(numero) and l.get("ano") == str(ano)) > 1
+
+
+def identificador_lido(item: dict) -> str:
+    """A chave da correcao a partir de uma indicacao ja gravada em
+    indicacoes.json - o mesmo que Indicacao.identificador_lido, mas lendo o
+    dicionario cru, sem precisar reconstruir o objeto."""
+    return f"{item.get('numero_lido') or item.get('numero')}/{item.get('ano')}"
+
+
+def divergencias_da_correcao(item: dict, correcoes: dict[str, dict]) -> list[str]:
+    """O que voce corrigiu e NAO chegou nesta indicacao. Vazio = tudo aplicado.
+
+    A correcao e escrita em config/correcoes.json na hora em que voce salva na
+    tela de conferencia, mas quem a aplica na indicacao e o pipeline, na rodada
+    seguinte. Entre uma coisa e outra existe uma janela em que o
+    output/indicacoes.json ainda mostra o texto velho - e era exatamente esse
+    texto velho que o envio levaria para o SAPL.
+
+    Enquanto o envio era manual isso aparecia na tela e a pessoa via. Com o
+    envio automatico ninguem ve: por isso a conferencia vale campo a campo,
+    aqui, imediatamente antes de cadastrar.
+    """
+    manual = correcao_de(
+        correcoes,
+        item.get("numero_lido") or item.get("numero"),
+        item.get("ano"),
+        f"{item.get('pagina_inicial')}-{item.get('pagina_final')}",
+    )
+    if not manual:
+        return []
+
+    def _texto(valor) -> str:
+        return str(valor or "").strip()
+
+    problemas = []
+    if manual.get("numero") and int(manual["numero"]) != int(item.get("numero") or 0):
+        problemas.append(
+            f"o número corrigido é {manual['numero']}, mas esta indicação ainda "
+            f"está como {item.get('numero')}")
+    if manual.get("data") and _texto(manual["data"]) != _texto(item.get("data_apresentacao")):
+        problemas.append(
+            f"a data corrigida é {manual['data']}, mas esta indicação ainda "
+            f"está com {_texto(item.get('data_apresentacao')) or '(em branco)'}")
+    if manual.get("ementa") and _texto(manual["ementa"]) != _texto(item.get("ementa")):
+        problemas.append(
+            "a ementa que você escreveu na conferência não é a que está aqui")
+    if manual.get("autor_id") and int(manual["autor_id"]) != int(item.get("autor_id") or 0):
+        problemas.append(
+            f"o autor corrigido é o id {manual['autor_id']}, mas esta indicação "
+            f"ainda está com o id {item.get('autor_id') or 0}")
+    if manual.get("autor_id_invalido"):
+        problemas.append(
+            f"o autor foi digitado como '{manual['autor_id_invalido']}', que não "
+            "é um número de id")
+    return problemas
+
+
 def exportar_paginas_png(
     caminho_pdf: str,
     paginas: list[int],
@@ -318,6 +430,7 @@ def salvar_correcao(
     numero: str,
     ano: str,
     *,
+    paginas: str = "",
     numero_manual: str = "",
     data: str = "",
     ementa: str = "",
@@ -330,31 +443,65 @@ def salvar_correcao(
     depois no glossario.csv, que e so a janela desta tela. Se o CSV se perder
     (ele e regravado a cada rodada), o trabalho continua no JSON - era
     exatamente o contrario disso que apagava tudo antes.
+
+    CONFIRMAR O NUMERO LIDO TAMBEM E RESPOSTA
+    -----------------------------------------
+    Quando a indicacao pede "numero" (o valor lido nao conversa com a sequencia
+    do lote, ou dois blocos sairam com o mesmo numero), a pessoa abre a imagem e
+    pode chegar a duas conclusoes: "o certo e outro" ou "o certo e esse mesmo".
+    As duas resolvem a pendencia.
+
+    A versao antiga so registrava a primeira. Digitar o MESMO numero que ja
+    estava la nao gravava nada, a linha continuava faltando "numero" para
+    sempre, e a tela de conferencia - que sempre volta para a primeira pendente
+    - jogava a pessoa de volta naquela indicacao a cada vez que ela salvava.
+    Era o defeito de "sempre volta para a mesma": nao havia jeito de sair dela.
     """
-    # "numero" aqui e sempre o LIDO (a chave). Digitar o mesmo valor no campo
-    # de correcao nao conta como correcao.
+    # "numero" aqui e sempre o LIDO (a chave). Digitar o mesmo valor nao muda o
+    # numero, mas CONFIRMA que ele esta certo - o que e uma resposta.
     novo_numero = str(numero_manual).strip()
+    mudou_numero = novo_numero.isdigit() and novo_numero != str(numero)
+
+    linhas = linhas_do_glossario(caminho_glossario)
+    ambigua = ambigua_no_glossario(linhas, numero, ano)
+    # Com duas linhas de mesmo numero, so as paginas dizem qual das duas esta
+    # na tela. Sem isto, editar a segunda gravava na primeira - a pessoa
+    # digitava o numero certo e ele aparecia na indicacao errada.
+    alvo = next(
+        (l for l in linhas
+         if l.get("numero") == str(numero) and l.get("ano") == str(ano)
+         and (not paginas or l.get("paginas") == paginas)),
+        None,
+    )
+    # So conta como confirmacao onde o numero era de fato a pergunta. Em toda
+    # indicacao que nao pede numero, digitar o proprio numero nao quer dizer
+    # nada e nao pode virar um "ja conferi tudo" implicito.
+    confirmou_numero = bool(
+        alvo and "numero" in precisa_de(alvo)
+        and novo_numero.isdigit() and not mudou_numero
+    )
+
     registrar_correcao(
-        f"{numero}/{ano}",
-        numero=(int(novo_numero)
-                if novo_numero.isdigit() and novo_numero != str(numero) else None),
+        chave_da_correcao(numero, ano, paginas or (alvo or {}).get("paginas", ""),
+                          ambigua),
+        numero=int(novo_numero) if mudou_numero else None,
         data=data,
         ementa=ementa,
         autor_id=int(autor_id) if str(autor_id).strip().isdigit() else None,
-        confirmado=confirmado,
+        confirmado=confirmado or confirmou_numero,
     )
 
-    linhas = linhas_do_glossario(caminho_glossario)
-    for linha in linhas:
-        if linha.get("numero") == str(numero) and linha.get("ano") == str(ano):
-            if novo_numero.isdigit() and novo_numero != str(numero):
-                linha["NUMERO_MANUAL"] = novo_numero
-            linha["DATA_MANUAL"] = data
-            linha["EMENTA_MANUAL"] = ementa
-            if str(autor_id).strip():
-                linha["AUTOR_ID_MANUAL"] = str(autor_id)
-            linha["CONFIRMAR"] = "sim" if confirmado else ""
-            break
+    if alvo is not None:
+        if novo_numero.isdigit():
+            # Gravado nos dois casos: e ele que faz a linha contar como
+            # resolvida. Numero igual ao lido nao vira correcao no JSON
+            # (ler_glossario descarta), so tira a linha da fila.
+            alvo["NUMERO_MANUAL"] = novo_numero
+        alvo["DATA_MANUAL"] = data
+        alvo["EMENTA_MANUAL"] = ementa
+        if str(autor_id).strip():
+            alvo["AUTOR_ID_MANUAL"] = str(autor_id)
+        alvo["CONFIRMAR"] = "sim" if (confirmado or confirmou_numero) else ""
     escrever_glossario(linhas, caminho_glossario)
 
 
@@ -416,9 +563,16 @@ def escrever_revisao_md(linhas: list[dict], caminho: Path) -> None:
 
 
 def ler_glossario(caminho: Path) -> dict[str, dict]:
-    """Le o glossario preenchido. Chave: "numero/ano". Ignora linhas em branco."""
+    """Le o glossario preenchido. Ignora linhas em branco.
+
+    A chave e a mesma do correcoes.json (ver chave_da_correcao): "numero/ano",
+    ou "numero/ano@paginas" quando duas linhas disputam o mesmo numero lido.
+    Sem essa distincao, a segunda linha sobrescrevia a primeira neste
+    dicionario e uma das duas correcoes simplesmente sumia na importacao.
+    """
     if not caminho.exists():
         return {}
+    todas = linhas_do_glossario(caminho)
     preenchidos: dict[str, dict] = {}
     with open(caminho, encoding="utf-8-sig", newline="") as f:
         for linha in csv.DictReader(f, delimiter=";"):
@@ -450,7 +604,9 @@ def ler_glossario(caminho: Path) -> dict[str, dict]:
                     item["autor_id_invalido"] = autor
             if confirmar:
                 item["confirmado"] = True
-            preenchidos[f"{numero}/{ano}"] = item
+            preenchidos[chave_da_correcao(
+                numero, ano, (linha.get("paginas") or "").strip(),
+                ambigua_no_glossario(todas, numero, ano))] = item
     return preenchidos
 
 

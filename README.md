@@ -32,11 +32,17 @@ para revisão manual em vez de travar o processamento.
 | Regime de tramitação | fixo: **Ordinária** (id 1) |
 | Tipo de apresentação | fixo: **Escrita** ("E") |
 | Ementa | texto após INDICA / REITERA / RETIRA / VEM INDICAR, até "Justificativa" — preenchida **EM CAIXA ALTA** |
-| **Data de apresentação** | **você** — escrita à mão no carimbo; a interface mostra a imagem dele |
-| **Texto original (anexo)** | **você** — o PDF já sai pronto em `output/pdfs/` |
+| **Data de apresentação** | **você**, na aba 2 — escrita à mão no carimbo, que a tela mostra ao lado do campo; daí em diante o programa a digita no SAPL |
+| Texto original (anexo) | o PDF de `output/pdfs/` é anexado pelo programa |
 
-O script de navegador **preenche e para**. Ele nunca salva: você confere a tela,
-anexa o PDF, escreve a data e clica em salvar.
+Salvar no SAPL tem dois caminhos, e quem escolhe é você:
+
+- **preencher e parar** (botão *Abrir o SAPL e preencher*) — o formulário abre
+  preenchido e o programa espera. Você confere, salva no SAPL e clica em
+  *Próxima*. É o caminho de sempre.
+- **enviar automático** (botão *Enviar automático*) — você diz **quantas** e o
+  programa preenche e salva sozinho, uma atrás da outra. Ele para e chama você
+  em qualquer indicação com pendência, e nunca cadastra a mesma duas vezes.
 
 ---
 
@@ -137,12 +143,34 @@ cima, em vermelho, o que ainda falta naquela indicação ("Ainda falta: ementa,
 autor"). Corrija, clique em **Salvar e continuar**, e ele vai para a próxima.
 O número entre parênteses na aba diz quantas ainda faltam.
 
-**3. Enviar ao SAPL** — abre o Firefox com o formulário preenchido, uma
-indicação por vez. A tela mostra **a imagem do carimbo "Lido na Sessão"**
-daquela indicação, para você ler a data escrita à mão e digitar ali mesmo
-(o botão *Copiar* guarda e copia de uma vez), e o **caminho do PDF para
-anexar**, com botão que abre a pasta no arquivo certo. Você confere, anexa,
-cola a data e salva no SAPL; depois clica em *Próxima* aqui.
+**3. Enviar ao SAPL** — abre o Firefox com o formulário preenchido: número,
+ano, ementa, autor, data de apresentação e o PDF anexado, tudo pelo programa.
+A partir daí, dois botões:
+
+- *Abrir o SAPL e preencher* — preenche e **para** em cada indicação. Você
+  confere a tela, salva no SAPL e clica em *Próxima* aqui.
+- *Enviar automático* — no campo **"Quer enviar quantas?"** você digita o
+  número (ou clica em *todas*) e o programa preenche **e salva** sozinho, uma
+  atrás da outra, até completar essa quantidade.
+
+O automático não é o manual sem conferência — é o manual com a conferência
+feita antes, nos dados. Cada indicação só vai sozinha se **não sobrar nenhuma
+objeção**: status pronto, data, autor, ementa, PDF na pasta, nenhuma correção
+sua ainda por aplicar, e nenhum recado de atenção no preenchimento da tela.
+Qualquer dúvida, ela sai do automático e a tela chama você.
+
+Duas travas que valem repetir:
+
+- **nunca cadastra duas vezes.** O que foi salvo fica registrado em
+  `output/enviados.json` e sai da fila — mesmo que você reprocesse o lote.
+- **só conta como enviada o que ele confirmou na tela do SAPL.** Se a página
+  não responder, se o SAPL recusar o cadastro ou se a sessão cair, ele
+  responde "não cadastrou" e devolve a decisão para você. Nunca marca como
+  feita uma indicação que não viu entrar.
+
+Se você corrigiu alguma coisa na aba 2 e ainda não processou o lote de novo, a
+aba 3 avisa em vermelho e **bloqueia o envio automático** — o que está na lista
+ainda é o texto antigo.
 
 ## A data de apresentação: onde ela está, e por que não dá para lê-la
 

@@ -58,6 +58,7 @@ from .detect import (
 from .progresso import Progresso
 from .revisao import (
     CORRECOES,
+    correcao_de,
     escrever_glossario,
     escrever_referencia_autores,
     escrever_revisao_md,
@@ -176,6 +177,12 @@ class Indicacao:
         return f"{self.numero_lido or self.numero}/{self.ano}"
 
     @property
+    def paginas(self) -> str:
+        """O intervalo de paginas do bloco, como sai na coluna do glossario.
+        E o que distingue duas indicacoes lidas com o mesmo numero."""
+        return f"{self.pagina_inicial}-{self.pagina_final}"
+
+    @property
     def nome_arquivo(self) -> str:
         return f"{self.numero}-{self.ano}.pdf"
 
@@ -273,31 +280,24 @@ def processar_pasta(
 
     todas: list[Indicacao] = []
     citacoes_todas: list[dict] = []
-    origem_de: dict[tuple[int, int], str] = {}
+    origem_de: dict[int, str] = {}
 
     for caminho_pdf in pdfs:
         ano = ano_padrao if ano_forcado else (_ano_do_nome_arquivo(caminho_pdf) or ano_padrao)
         print(f"\n--- {caminho_pdf.name} (ano {ano}) ---")
         indicacoes, citacoes = _extrair_um_pdf(str(caminho_pdf), ano, usar_ollama, resolvedor)
         citacoes_todas.extend(citacoes)
-
         for ind in indicacoes:
-            chave = (ind.numero, ind.ano)
-            if chave in origem_de:
-                # Em avisos_bloco isto seria so informativo. Vai em motivos de
-                # proposito: e o que forca a indicacao para revisao em vez de
-                # deixar dois arquivos disputarem silenciosamente o mesmo
-                # numero (um deles venceria sem voce saber que houve colisao).
-                ind.motivos.append(
-                    f"numero {ind.identificador} tambem aparece em "
-                    f"{origem_de[chave]} - dois arquivos descrevem a mesma indicacao?"
-                )
-            else:
-                origem_de[chave] = caminho_pdf.name
+            origem_de[id(ind)] = caminho_pdf.name
         todas.extend(indicacoes)
 
     print(f"\n{len(todas)} indicacoes ao todo. Aplicando correcoes do glossario ...")
     _aplicar_correcoes_manuais(todas, ids, resolvedor)
+    # A conferencia de numero repetido vem DEPOIS das correcoes, sobre os
+    # numeros que valem. Antes delas, a colisao que voce acabou de resolver
+    # ("esta e a 708") continuaria aparecendo em toda rodada, porque as duas
+    # ainda seriam 706 neste ponto - e a indicacao certa nunca sairia da fila.
+    _marcar_numeros_repetidos(todas, origem_de)
     _renomear_pdfs_corrigidos(todas)
     for ind in todas:
         _classificar(ind)
@@ -439,6 +439,50 @@ def _extrair_um_pdf(
     return indicacoes, citacoes
 
 
+def _marcar_numeros_repetidos(
+    todas: list[Indicacao], origem_de: dict[int, str]
+) -> None:
+    """Dois blocos com o mesmo numero: os DOIS vao para conferencia.
+
+    Caso real, no lote de 2022 (110 indicacoes, numeros 601 a 710): as paginas
+    221 e 225 trazem AS DUAS "INDICAÇÃO N° 706/2022" impresso, e a sequencia do
+    arquivo vai 706, 707, 706, 709 - o 708 nao aparece em pagina nenhuma. Nao e
+    erro de leitura: o numero esta errado no PAPEL, e so quem le as duas
+    paginas pode dizer qual delas e a 708.
+
+    O estrago que isso faz quando ninguem ve:
+
+      - o cadastro sai no SAPL com um numero que ja e de outra indicacao;
+      - e com o PDF errado anexado, porque output/pdfs/706-2022.pdf ja existia
+        e _fatiar_pdf nao sobrescreve arquivo que ja esta la.
+
+    Marcar so o segundo bloco (como era antes) nao basta: olhando um so nao da
+    para saber qual e qual. Quem decide e quem ve as duas imagens, entao as
+    duas param.
+
+    O prefixo "numero:" nao e enfeite - e ele que faz a tela de conferencia
+    EXIGIR o numero digitado, em vez de aceitar um "ja conferi" e seguir com o
+    numero repetido.
+    """
+    grupos: dict[tuple[int, int], list[Indicacao]] = {}
+    for ind in todas:
+        grupos.setdefault((ind.numero, ind.ano), []).append(ind)
+
+    for (numero, ano), grupo in grupos.items():
+        if len(grupo) < 2:
+            continue
+        arquivos = sorted({origem_de.get(id(i), "?") for i in grupo})
+        onde = (f"duas vezes em {arquivos[0]}" if len(arquivos) == 1
+                else "em " + " e ".join(arquivos))
+        for ind in grupo:
+            ind.motivos.append(
+                f"numero: {numero}/{ano} aparece {onde} "
+                f"(paginas " + ", ".join(
+                    f"{i.pagina_inicial}-{i.pagina_final}" for i in grupo)
+                + ") - leia o numero na imagem e digite o certo"
+            )
+
+
 def _recuperar_correcoes_antigas() -> None:
     """Uma vez so: puxa para o correcoes.json o que a versao antiga perdeu.
 
@@ -481,8 +525,17 @@ def _aplicar_correcoes_manuais(
     nomes = {a["id"]: a["nome"] for a in ids["autores"]}
     aprendidos: list[str] = []
 
+    # Duas indicacoes com o mesmo numero lido nao podem dividir a mesma chave,
+    # senao a correcao de uma cai nas duas (ver revisao.chave_da_correcao).
+    repetidas: dict[str, int] = {}
     for ind in todas:
-        manual = manuais.get(ind.identificador_lido)
+        repetidas[ind.identificador_lido] = repetidas.get(ind.identificador_lido, 0) + 1
+
+    for ind in todas:
+        manual = correcao_de(
+            manuais, ind.numero_lido or ind.numero, ind.ano, ind.paginas,
+            ambigua=repetidas.get(ind.identificador_lido, 0) > 1,
+        )
         if not manual:
             continue
         # O numero vem primeiro: tudo depois dele (nome do PDF, cadastro no
@@ -541,9 +594,19 @@ def _renomear_pdfs_corrigidos(todas: list[Indicacao]) -> None:
 
     ja_gerados = _carregar_gerados()
     renomeados = 0
+    # De quem e cada nome de arquivo DEPOIS das correcoes. Serve para nunca
+    # levar embora o PDF de outra indicacao: quando dois blocos vem com o mesmo
+    # numero no papel e voce corrige um deles para 708, o arquivo 706-2022.pdf
+    # continua sendo da 706 de verdade - renomea-lo deixaria a 706 sem PDF e
+    # daria a 708 as paginas erradas, documento errado em registro oficial.
+    donos = {i.nome_arquivo for i in todas}
     for ind in corrigidas:
         antigo = PDFS_DIR / ind.nome_arquivo_lido
         novo = PDFS_DIR / ind.nome_arquivo
+        if antigo.name in donos:
+            print(f"  {antigo.name} e de outra indicacao - nao renomeei; "
+                  f"{novo.name} sera gerado do zero")
+            continue
         if antigo.exists() and not novo.exists():
             try:
                 antigo.rename(novo)
@@ -790,6 +853,12 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
         return
 
     correcoes = ler_correcoes()
+    # Mesma contagem de _aplicar_correcoes_manuais, e pelo mesmo motivo: com
+    # numero lido repetido, a chave da correcao leva as paginas junto.
+    repetidas: dict[str, int] = {}
+    for ind in indicacoes:
+        repetidas[ind.identificador_lido] = repetidas.get(ind.identificador_lido, 0) + 1
+
     linhas = []
     barra = Progresso(len(pendentes), prefixo="  paginas (png) ")
     for ind in pendentes:
@@ -804,7 +873,10 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
         # escrito. E o que diferencia "continuar de onde parou" de "comecar do
         # zero toda vez": uma indicacao que ainda precisa do autor nao apaga a
         # ementa que voce transcreveu na rodada passada.
-        ja = correcoes.get(ind.identificador_lido, {})
+        ja = correcao_de(
+            correcoes, ind.numero_lido or ind.numero, ind.ano, ind.paginas,
+            ambigua=repetidas.get(ind.identificador_lido, 0) > 1,
+        )
         autor_manual = ja.get("autor_id") or ja.get("autor_id_invalido") or ""
         linhas.append({
             # A chave e o numero LIDO - e por ele que a correcao e reencontrada

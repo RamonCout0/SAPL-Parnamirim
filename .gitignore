@@ -14,6 +14,12 @@
 # conteudo - cada Camara gera o proprio a partir do seu PDF.
 output/
 !output/pdfs_gerados.json
+# Excecao: o registro do que ja foi CADASTRADO no SAPL. E a unica trava contra
+# cadastrar a mesma indicacao duas vezes - se ficasse so na maquina de quem
+# enviou, outra pessoa clonando o repositorio comecaria achando que nada foi
+# enviado. Nao contem dado sigiloso: numero/ano e o endereco da materia
+# publica.
+!output/enviados.json
 
 
 # ---------------------------------------------------------------------------

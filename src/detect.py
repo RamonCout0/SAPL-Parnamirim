@@ -334,8 +334,11 @@ def marcar_suspeitos(inicios: list[Inicio]) -> list[Inicio]:
 def inferir_numeros(inicios: list[Inicio], ano_padrao: int) -> list[Inicio]:
     """Deduz os numeros perdidos pelo OCR a partir da posicao na sequencia.
 
-    O documento vem numa progressao regular (aqui, decrescente de 1 em 1).
-    Achamos o passo pelos vizinhos conhecidos e projetamos sobre os buracos.
+    O documento vem numa progressao regular, e o SENTIDO dela sai dos proprios
+    numeros - nada aqui supoe que o lote desce. Os dois sentidos aparecem de
+    verdade: o lote de 2023 vem de 300 a 201 (passo -1) e o de 2022 vem de 601
+    a 710 (passo +1). Achamos o passo pelos vizinhos conhecidos, com sinal, e
+    projetamos sobre os buracos.
 
     Os numeros suspeitos ficam de fora das ancoras: um erro de leitura nao
     pode contaminar as vizinhas. Foi o que aconteceu no lote de 2021 - o "9"
@@ -349,7 +352,12 @@ def inferir_numeros(inicios: list[Inicio], ano_padrao: int) -> list[Inicio]:
     if len(conhecidos) < 2:
         return inicios
 
-    passo = _passo_da_sequencia(conhecidos) or -1
+    # Sem "or -1": um passo zero significa que a sequencia nao progride, e
+    # nesse caso a deducao repete o numero do vizinho - o que o detector de
+    # numero repetido pega e manda para conferencia. Forcar -1 ali, como era
+    # antes, inventava uma sequencia decrescente que ninguem mediu: numero
+    # errado com cara de certo, que e o unico tipo que chega ao SAPL calado.
+    passo = _passo_da_sequencia(conhecidos)
 
     for i, ini in enumerate(inicios):
         if ini.numero is not None:

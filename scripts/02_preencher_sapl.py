@@ -1,20 +1,24 @@
 """Abre o formulario do SAPL com os campos ja preenchidos, um por vez.
 
-O script preenche e PARA. Ele nunca salva. Voce faz as duas coisas que ficaram
-para a mao - anexar o PDF de output/pdfs/ e escrever a data de apresentacao -
-confere a tela e clica em salvar.
+Este script preenche e PARA. Ele nunca salva, e nao tem envio automatico: o
+automatico mora na aba 3 da interface (`SAPL Parnamirim.bat`), onde da para
+ver, indicacao por indicacao, o que foi cadastrado e o que ficou de fora. Aqui
+voce confere a tela e clica em salvar.
 
-O campo "Autor" do SAPL costuma so liberar as opcoes DEPOIS que a data e
-preenchida (filtra por quem estava no mandato naquela data). Como a data e
-sempre manual, isso aparece como um aviso "atenção: autor não pré-
-selecionado", nao como falha - depois de preencher a data, so selecionar o
-autor certo manualmente (o aviso ja diz qual).
+O campo "Autor" do SAPL so libera as opcoes DEPOIS que a data existe (ele
+filtra por quem estava no mandato naquela data) - por isso a data e preenchida
+antes do autor, e nao depois. Quando o autor mesmo assim nao fixa, o aviso
+sai na tela dizendo qual e o vereador e por que ele pode nao estar na lista.
 
     python scripts\\02_preencher_sapl.py --inspecionar     lista os campos reais
     python scripts\\02_preencher_sapl.py                   percorre as prontas
     python scripts\\02_preencher_sapl.py --numero 300      so a 300
-    python scripts\\02_preencher_sapl.py --de 300 --ate 290
+    python scripts\\02_preencher_sapl.py --de 300 --ate 290   trecho da fila
     python scripts\\02_preencher_sapl.py --ano 2022        so o lote de 2022
+
+"--de" e "--ate" seguem a ORDEM DA FILA, nao a grandeza do numero: valem tanto
+para o lote de 2023 (que desce, 300 a 201) quanto para o de 2022 (que sobe,
+601 a 710). Em 2022, "--de 601 --ate 610" pega as dez primeiras.
 
 Sem "--ano", o script PERGUNTA qual ano trabalhar - mas so quando ha mais de
 um ano misturado nas prontas (um lote so nao incomoda com a pergunta).
@@ -56,6 +60,8 @@ from src.sapl import (
     PERFIL,
     achar,
     carregar_form,
+    cortar_ate_numero,
+    cortar_do_numero,
     descobrir_rotas,
     listar_campos,
     preencher,
@@ -125,9 +131,9 @@ def _pedir_numero_inicial(prontas: list[dict]) -> list[dict]:
         print(f"  '{resposta}' não é um número - começando do topo mesmo.")
         return prontas
 
-    cortado = [i for i in prontas if i["numero"] <= inicio]
+    cortado = cortar_do_numero(prontas, inicio)
     if not cortado:
-        print(f"  nenhuma pronta com número <= {inicio} - começando do topo mesmo.")
+        print(f"  nenhuma pronta a partir de {inicio} - começando do topo mesmo.")
         return prontas
     print(f"  começando em {cortado[0]['numero']}/{cortado[0]['ano']}.")
     return cortado
@@ -150,12 +156,14 @@ def main() -> int:
     if "--numero" in args:
         alvo = int(args[args.index("--numero") + 1])
         prontas = [i for i in prontas if i["numero"] == alvo]
+    # "de" e "ate" sao POSICOES na fila, nao comparacoes de grandeza. Com
+    # "numero <= de" e "numero >= ate", como era antes, "--de 601 --ate 610"
+    # num lote crescente (o de 2022 vai da 601 a 710) devolvia lista vazia: as
+    # duas condicoes se excluem quando o lote sobe em vez de descer.
     if "--de" in args:
-        de = int(args[args.index("--de") + 1])
-        prontas = [i for i in prontas if i["numero"] <= de]
+        prontas = cortar_do_numero(prontas, int(args[args.index("--de") + 1]))
     if "--ate" in args:
-        ate = int(args[args.index("--ate") + 1])
-        prontas = [i for i in prontas if i["numero"] >= ate]
+        prontas = cortar_ate_numero(prontas, int(args[args.index("--ate") + 1]))
 
     if not prontas and not so_inspecionar:
         print("Nenhuma indicacao com status 'pronto'. Rode 01_extrair.py primeiro.")
@@ -245,8 +253,9 @@ def main() -> int:
             print(f"[{n}/{len(prontas)}] Indicação {ind['numero']}/{ind['ano']}")
             print(f"  autor : {ind['autor_nome_sapl']} (id {ind['autor_id']})")
             print(f"  ementa: {ind['ementa'][:150]}...")
-            print(f"  anexar: output\\pdfs\\{ind['numero']}-{ind['ano']}.pdf")
-            print("  falta : data de apresentação + texto original")
+            print(f"  data  : {ind.get('data_apresentacao') or '(em branco)'}")
+            print(f"  anexo : output\\pdfs\\{ind['numero']}-{ind['ano']}.pdf")
+            print("  falta : conferir a tela e clicar em salvar")
             if notas:
                 for nota in notas:
                     print(f"  atenção: {nota}")

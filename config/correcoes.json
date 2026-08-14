@@ -1,6 +1,11 @@
 {
  "_doc": "Correcoes manuais das indicacoes, por 'numero/ano'. Este arquivo e a memoria permanente da revisao: o glossario.csv e regenerado a cada rodada, este aqui nunca e. O que estiver aqui vence qualquer deducao da maquina. Pode versionar no git - uma correcao feita por uma pessoa passa a valer para todas.",
  "correcoes": {
+  "1/2016": {
+   "atualizado_em": "2026-08-13T11:26:37",
+   "data": "16/02/2016",
+   "ementa": "ao xcelen ssimo Senhor Mauricio Maruues dos Santo, e extensivo a secretaria municipal de meio Ambiente e desenvoìv mento Urbano SEMUR, para que sejam colocadas as placas de identificação nas ruas de cajupiranga, localizada no município de Parnamirim. Assim como a oficialização aos correios sob a existência doi mesmos conforme alei mumcipal n° 1739/2015"
+  },
   "301/2021": {
    "atualizado_em": "2026-08-13T08:07:20",
    "confirmado": true,

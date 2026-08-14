@@ -33,7 +33,7 @@ ZOOM_MIN, ZOOM_MAX, ZOOM_PASSO = 0.3, 3.0, 0.15
 
 class TelaRevisao(ttk.Frame):
     def __init__(self, pai, app):
-        super().__init__(pai, padding=16)
+        super().__init__(pai, padding=visual.px(16))
         self.app = app
         self.linhas: list[dict] = []
         self.indice = 0
@@ -55,46 +55,46 @@ class TelaRevisao(ttk.Frame):
         self.titulo = ttk.Label(topo, text="", style="Titulo.TLabel")
         self.titulo.pack(side="left")
         self.contador = ttk.Label(topo, text="", style="Ajuda.TLabel")
-        self.contador.pack(side="left", padx=14)
+        self.contador.pack(side="left", padx=visual.px(14))
 
         nav = ttk.Frame(topo)
         nav.pack(side="right")
         ttk.Button(nav, text="◀ anterior", command=self.anterior).pack(side="left")
-        ttk.Button(nav, text="próxima ▶", command=self.proxima).pack(side="left", padx=6)
+        ttk.Button(nav, text="próxima ▶", command=self.proxima).pack(side="left", padx=visual.px(6))
 
         self.caixa_falta = visual.aviso(self, "", "erro")
-        self.caixa_falta.pack(fill="x", pady=(12, 0))
+        self.caixa_falta.pack(fill="x", pady=(visual.px(12), 0))
         # Sem motivo (fila vazia), esta caixa some em vez de virar uma faixa
         # amarela vazia no meio da tela - ver _mostrar_motivo.
         self.caixa_motivo = visual.aviso(self, "", "atencao")
 
         self.corpo = ttk.Frame(self)
-        self.corpo.pack(fill="both", expand=True, pady=(12, 0))
-        self.corpo.columnconfigure(0, weight=3, minsize=420)
-        self.corpo.columnconfigure(1, weight=2, minsize=380)
+        self.corpo.pack(fill="both", expand=True, pady=(visual.px(12), 0))
+        self.corpo.columnconfigure(0, weight=3, minsize=visual.px(420))
+        self.corpo.columnconfigure(1, weight=2, minsize=visual.px(380))
         self.corpo.rowconfigure(0, weight=1)
 
         self._montar_imagem(self.corpo)
         self._montar_campos(self.corpo)
 
     def _montar_imagem(self, pai) -> None:
-        caixa = ttk.LabelFrame(pai, text=" Página escaneada ", padding=8)
-        caixa.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
+        caixa = ttk.LabelFrame(pai, text=" Página escaneada ", padding=visual.px(8))
+        caixa.grid(row=0, column=0, sticky="nsew", padx=(0, visual.px(14)))
 
         ferramentas = ttk.Frame(caixa)
-        ferramentas.pack(fill="x", pady=(0, 8))
+        ferramentas.pack(fill="x", pady=(0, visual.px(8)))
         ttk.Button(ferramentas, text="−", width=3,
                    command=lambda: self.mudar_zoom(-ZOOM_PASSO)).pack(side="left")
         ttk.Button(ferramentas, text="+", width=3,
-                   command=lambda: self.mudar_zoom(ZOOM_PASSO)).pack(side="left", padx=4)
+                   command=lambda: self.mudar_zoom(ZOOM_PASSO)).pack(side="left", padx=visual.px(4))
         ttk.Button(ferramentas, text="Ajustar à largura",
-                   command=self.ajustar_largura).pack(side="left", padx=4)
+                   command=self.ajustar_largura).pack(side="left", padx=visual.px(4))
         # A data mora no carimbo do verso, que fica na segunda pagina do
         # bloco. Rolar ate la a mao, em toda indicacao, seria o movimento mais
         # repetido da tela inteira.
         self.botao_carimbo = ttk.Button(ferramentas, text="Ir ao carimbo ↓",
                                         command=self.ir_ao_carimbo)
-        self.botao_carimbo.pack(side="left", padx=4)
+        self.botao_carimbo.pack(side="left", padx=visual.px(4))
         ttk.Button(ferramentas, text="Abrir a imagem",
                    command=self.abrir_imagem).pack(side="left")
 
@@ -112,58 +112,26 @@ class TelaRevisao(ttk.Frame):
                        lambda e: self.tela.yview_scroll(-e.delta // 120, "units"))
 
     def _montar_campos(self, pai) -> None:
-        caixa = ttk.Frame(pai)
-        caixa.grid(row=0, column=1, sticky="nsew")
-
-        # Ordem de empacotamento pensada para janela pequena: tudo que a pessoa
-        # PRECISA alcancar (os botoes, principalmente) e preso embaixo primeiro,
-        # e a caixa de ementa fica com o espaco que sobrar. Empacotando na
-        # ordem visual, o botao "Salvar" era o primeiro a sair da tela quando
-        # a janela nao era alta o bastante - justamente o que nao pode faltar.
-        self.rodape = ttk.Label(caixa, style="Ajuda.TLabel", wraplength=420,
-                                justify="left", text="")
-        self.rodape.pack(side="bottom", anchor="w", pady=(12, 0))
-
-        botoes = ttk.Frame(caixa)
-        botoes.pack(side="bottom", fill="x", pady=(16, 0))
-        ttk.Button(botoes, text="Salvar e continuar", style="Principal.TButton",
-                   command=self.salvar).pack(side="left")
-        ttk.Button(botoes, text="Pular por enquanto",
-                   command=self.pular).pack(side="left", padx=8)
-
-        self.ajuda_conferi = ttk.Label(
-            caixa, style="Ajuda.TLabel", wraplength=420, justify="left",
-            text="Marque quando o aviso for só sobre número deduzido ou página "
-                 "única — esses não têm texto para corrigir.")
-        self.ajuda_conferi.pack(side="bottom", anchor="w")
-
-        self.var_conferi = tk.BooleanVar()
-        self.caixa_conferi = ttk.Checkbutton(
-            caixa, variable=self.var_conferi,
-            text="Já conferi a página: número e páginas estão certos assim mesmo")
-        self.caixa_conferi.pack(side="bottom", anchor="w", pady=(14, 2))
-
-        self.rotulo_autor = ttk.Label(caixa, style="Ajuda.TLabel", wraplength=420,
-                                      justify="left", text="")
-        self.rotulo_autor.pack(side="bottom", anchor="w", pady=(4, 0))
-
-        self.var_autor = tk.StringVar()
-        self.campo_autor = ttk.Combobox(caixa, textvariable=self.var_autor,
-                                        state="readonly", font=visual.FONTE_MEDIA)
-        self.campo_autor.pack(side="bottom", fill="x")
-
-        ttk.Label(caixa, text="Autor (vereador que assina)",
-                  style="Titulo.TLabel").pack(side="bottom", anchor="w",
-                                              pady=(16, 2))
+        # Coluna rolavel, e os widgets na ordem em que se le e se preenche.
+        #
+        # A versao anterior prendia os botoes embaixo e ia empilhando o resto
+        # por cima, para o "Salvar e continuar" nunca sair da tela numa janela
+        # baixa. Funcionava para os botoes e falhava para o resto: numa janela
+        # de 560 de altura, quem sumia eram os campos de NUMERO e de EMENTA -
+        # sobrava a imagem, o botao de salvar e nada para digitar.
+        #
+        # Com a area rolavel nada some: falta altura, aparece a barra.
+        area, caixa = visual.area_rolavel(pai)
+        area.grid(row=0, column=1, sticky="nsew")
 
         # Numero primeiro: quando o OCR destroi o cabecalho, e o campo que
         # impede a indicacao de ser cadastrada com o numero errado.
         linha_num = ttk.Frame(caixa)
-        linha_num.pack(fill="x", pady=(0, 12))
+        linha_num.pack(fill="x", pady=(0, visual.px(12)))
         ttk.Label(linha_num, text="Número:", style="Titulo.TLabel").pack(side="left")
         self.var_numero = tk.StringVar()
         tk.Entry(linha_num, textvariable=self.var_numero, width=8,
-                 font=visual.FONTE_GRANDE, justify="center").pack(side="left", padx=(8, 20))
+                 font=visual.FONTE_GRANDE, justify="center").pack(side="left", padx=(visual.px(8), visual.px(20)))
 
         # A data e de CADA indicacao (48 datas diferentes num lote real de 196),
         # entao ela mora aqui, do lado do numero - nao numa configuracao do lote.
@@ -171,29 +139,68 @@ class TelaRevisao(ttk.Frame):
         self.var_data = tk.StringVar()
         entrada_data = tk.Entry(linha_num, textvariable=self.var_data, width=12,
                                 font=visual.FONTE_GRANDE, justify="center")
-        entrada_data.pack(side="left", padx=8)
+        entrada_data.pack(side="left", padx=visual.px(8))
         entrada_data.bind("<KeyRelease>", self._formatar_data)
 
-        self.rotulo_numero = ttk.Label(caixa, style="Ajuda.TLabel", text="",
-                                       wraplength=420, justify="left")
-        self.rotulo_numero.pack(anchor="w", pady=(0, 12))
+        self.rotulo_numero = visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", text="", justify="left"))
+        self.rotulo_numero.pack(anchor="w", fill="x", pady=(0, visual.px(12)))
 
         # O que sobrar de altura fica com a ementa.
         ttk.Label(caixa, text="Ementa", style="Titulo.TLabel").pack(anchor="w")
-        ttk.Label(caixa, style="Ajuda.TLabel", wraplength=420, justify="left",
-                  text="Já vem com o que a máquina leu. Compare com a imagem e "
-                       "corrija o que estiver errado ou faltando.").pack(
-            anchor="w", pady=(2, 6))
+        visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left",
+            text="Já vem com o que a máquina leu. Compare com a imagem e "
+                 "corrija o que estiver errado ou faltando.")).pack(fill="x",
+            anchor="w", pady=(visual.px(2), visual.px(6)))
         moldura = ttk.Frame(caixa)
         moldura.pack(fill="both", expand=True)
         self.campo_ementa = tk.Text(moldura, height=6, wrap="word",
                                     font=visual.FONTE_MEDIA, relief="solid",
-                                    borderwidth=1, padx=8, pady=6)
+                                    borderwidth=1, padx=visual.px(8), pady=visual.px(6))
         self.campo_ementa.pack(side="left", fill="both", expand=True)
         rolagem = ttk.Scrollbar(moldura, orient="vertical",
                                 command=self.campo_ementa.yview)
         rolagem.pack(side="left", fill="y")
         self.campo_ementa.configure(yscrollcommand=rolagem.set)
+
+        # --- autor ---
+        ttk.Label(caixa, text="Autor (vereador que assina)",
+                  style="Titulo.TLabel").pack(anchor="w",
+                                              pady=(visual.px(16), visual.px(2)))
+        self.var_autor = tk.StringVar()
+        self.campo_autor = ttk.Combobox(caixa, textvariable=self.var_autor,
+                                        state="readonly", font=visual.FONTE_MEDIA)
+        self.campo_autor.pack(fill="x")
+
+        self.rotulo_autor = visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left", text=""))
+        self.rotulo_autor.pack(anchor="w", fill="x", pady=(visual.px(4), 0))
+
+        # --- "ja conferi" ---
+        self.var_conferi = tk.BooleanVar()
+        self.caixa_conferi = ttk.Checkbutton(
+            caixa, variable=self.var_conferi,
+            text="Já conferi a página: número e páginas estão certos assim mesmo")
+        self.caixa_conferi.pack(anchor="w", pady=(visual.px(14), visual.px(2)))
+
+        self.ajuda_conferi = visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left",
+            text="Marque quando o aviso for só sobre número deduzido ou página "
+                 "única — esses não têm texto para corrigir."))
+        self.ajuda_conferi.pack(anchor="w", fill="x")
+
+        # --- acoes ---
+        botoes = ttk.Frame(caixa)
+        botoes.pack(fill="x", pady=(visual.px(16), 0))
+        ttk.Button(botoes, text="Salvar e continuar", style="Principal.TButton",
+                   command=self.salvar).pack(side="left")
+        ttk.Button(botoes, text="Pular por enquanto",
+                   command=self.pular).pack(side="left", padx=visual.px(8))
+
+        self.rodape = visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left", text=""))
+        self.rodape.pack(anchor="w", fill="x", pady=(visual.px(12), 0))
 
     # ----------------------------------------------------------------- dados
     def recarregar(self) -> None:
@@ -247,6 +254,13 @@ class TelaRevisao(ttk.Frame):
             self.titulo.configure(text=f"Indicação {numero}/{ano}")
         pistas.append(f"Data lida no papel: {linha.get('data_lida_pela_maquina') or '—'}")
         pistas.append("Os dois vão para o SAPL — confira na imagem.")
+        if "numero" in precisa_de(linha):
+            # Sem esta frase a pessoa nao tem como saber que deixar o numero
+            # como esta tambem conta - e era justamente isso que prendia a
+            # indicacao na fila para sempre.
+            pistas.append("O número é o que está sendo perguntado aqui: se na "
+                          "imagem ele estiver certo assim mesmo, deixe como "
+                          "está e salve — isso confirma.")
         self.rotulo_numero.configure(text="  ".join(pistas))
         self.contador.configure(
             text=f"{self.indice + 1} de {len(self.linhas)} · "
@@ -320,7 +334,7 @@ class TelaRevisao(ttk.Frame):
     def _mostrar_motivo(self, motivo: str) -> None:
         if motivo.strip():
             self.caixa_motivo.configure(text="Por que está aqui: " + motivo)
-            self.caixa_motivo.pack(fill="x", pady=(8, 0), before=self.corpo)
+            self.caixa_motivo.pack(fill="x", pady=(visual.px(8), 0), before=self.corpo)
         else:
             self.caixa_motivo.pack_forget()
 
@@ -451,6 +465,9 @@ class TelaRevisao(ttk.Frame):
 
         salvar_correcao(
             GLOSSARIO, linha.get("numero", ""), linha.get("ano", ""),
+            # As paginas dizem QUAL linha e esta, quando duas foram lidas com o
+            # mesmo numero. Sem elas, corrigir a segunda gravava na primeira.
+            paginas=linha.get("paginas", ""),
             numero_manual=novo_numero, data=nova_data,
             ementa=self.campo_ementa.get("1.0", "end").strip(),
             autor_id=str(autor["id"]) if autor else "",
@@ -458,6 +475,21 @@ class TelaRevisao(ttk.Frame):
         )
         self.linhas = linhas_do_glossario(GLOSSARIO)
         self.app.atualizar_abas()
+
+        # Salvou e ainda falta coisa NESTA indicacao? Entao fica nela e diz o
+        # que falta. Antes a tela pulava adiante em silencio e, como ela sempre
+        # volta para a primeira pendente, a pessoa era jogada de volta aqui na
+        # salvada seguinte sem entender por que - parecia que o programa
+        # "travava" numa indicacao so.
+        if self.atual is not None and not ja_revisada(self.atual):
+            self.mostrar()
+            messagebox.showwarning(
+                "Ainda falta preencher",
+                "Esta indicação continua pendente porque falta: "
+                + ", ".join(ROTULO_DE[p] for p in falta_em(self.atual))
+                + ".\n\nPreencha o que está faltando (está escrito em vermelho "
+                  "no alto da tela) e salve de novo.")
+            return
 
         adiante = next((i for i, l in enumerate(self.linhas)
                         if i > self.indice and not ja_revisada(l)), None)
