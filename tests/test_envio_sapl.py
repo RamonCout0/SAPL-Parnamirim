@@ -71,6 +71,14 @@ class Elemento:
     def all_inner_texts(self) -> list[str]:
         return self.textos
 
+    def evaluate(self, js: str):
+        return "select"
+
+    def input_value(self) -> str:
+        return self.valor
+
+    valor = ""
+
     def scroll_into_view_if_needed(self, timeout: int = 0) -> None:
         pass
 
@@ -246,8 +254,16 @@ class TestImpedimentos(unittest.TestCase):
         self.assertIn("sem data de apresentação", travas)
 
     def test_sem_autor_nao_passa(self):
+        """Autor vazio e leitura que falhou: tem de parar."""
         travas = sapl.impedimentos(indicacao(autor_id=0), {}, {})
         self.assertIn("sem autor definido", travas)
+
+    def test_marcada_como_sem_autor_passa(self):
+        """A 439/2023 e assinada por todos os vereadores - nao ha autor
+        individual, e voce marcou isso na conferencia. Essa passa."""
+        travas = sapl.impedimentos(
+            indicacao(autor_id=0, sem_autor=True), {}, {})
+        self.assertNotIn("sem autor definido", travas)
 
     def test_sem_ementa_nao_passa(self):
         travas = sapl.impedimentos(indicacao(ementa="   "), {}, {})
@@ -428,6 +444,62 @@ class TestRegistroDeEnviados(unittest.TestCase):
         self.arquivo.write_text(json.dumps({"enviados": []}), encoding="utf-8")
         with self.assertRaises(ValueError):
             mod_enviados.ler_enviados(self.arquivo)
+
+
+class TestPreencherSemAutor(unittest.TestCase):
+    """O preenchimento nao pode reclamar de um autor que voce disse nao existir.
+
+    Se reclamasse, o recado ("autor não identificado") pararia o envio
+    automatico em TODA indicacao assinada por todos os vereadores - o oposto
+    exato do que marcar "não tem autor individual" quer dizer.
+    """
+
+    CAMPOS = ("tipo_materia", "ano", "regime_tramitacao", "tipo_apresentacao",
+              "data_apresentacao", "ementa", "tipo_autor", "autor", "numero")
+
+    def setUp(self):
+        self.form = {"campos": {c: [f"#id_{c}"] for c in self.CAMPOS}}
+        self.pagina = PaginaFalsa(
+            FORMULARIO, {f"#id_{c}": Elemento() for c in self.CAMPOS})
+        # Escrever de fato nos campos e assunto do Playwright; aqui interessa
+        # o que preencher() DECIDE, nao como ele digita. Os dublês guardam o
+        # valor no elemento porque preencher() RELE o campo numero no fim - o
+        # SAPL sugere um numero sozinho e pode sobrescrever o nosso.
+        self._originais = (sapl.definir_select, sapl.garantir_select,
+                           sapl.definir_texto)
+
+        def escrever(alvo, valor) -> bool:
+            alvo.valor = str(valor)
+            return True
+
+        sapl.definir_select = lambda p, a, v: escrever(a, v)
+        sapl.garantir_select = lambda p, a, v: escrever(a, v)
+        sapl.definir_texto = escrever
+
+    def tearDown(self):
+        (sapl.definir_select, sapl.garantir_select,
+         sapl.definir_texto) = self._originais
+
+    def _item(self, **extra) -> dict:
+        base = dict(numero=439, ano=2023, tipo_materia_id=6, tipo_autor_id=2,
+                    regime_id=1, tipo_apresentacao="E", autor_id=0,
+                    ementa="APOIO DAS FORÇAS ARMADAS.",
+                    data_apresentacao="22/03/2023")
+        base.update(extra)
+        return base
+
+    def test_marcada_como_sem_autor_nao_gera_recado(self):
+        falhas, notas = sapl.preencher(self.pagina, self.form,
+                                       self._item(sem_autor=True))
+        # A afirmacao e sobre o AUTOR. O recado do anexo aparece porque este
+        # formulario de teste nao tem o campo de arquivo - e isso e verdade
+        # sobre o formulario, nao sobre a indicacao.
+        sobre_autor = [m for m in falhas + notas if "autor" in m.lower()]
+        self.assertEqual(sobre_autor, [])
+
+    def test_autor_vazio_sem_a_marca_continua_avisando(self):
+        falhas, notas = sapl.preencher(self.pagina, self.form, self._item())
+        self.assertTrue(any("autor não identificado" in n for n in notas), notas)
 
 
 class TestRetomarDeOndeParou(unittest.TestCase):

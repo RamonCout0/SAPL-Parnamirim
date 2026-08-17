@@ -143,6 +143,14 @@ cima, em vermelho, o que ainda falta naquela indicação ("Ainda falta: ementa,
 autor"). Corrija, clique em **Salvar e continuar**, e ele vai para a próxima.
 O número entre parênteses na aba diz quantas ainda faltam.
 
+**Indicação sem autor individual.** Algumas são assinadas por todos os
+vereadores — o texto diz *"Os Vereadores da Câmara Municipal de Parnamirim/RN
+[...] INDICAM"* e as assinaturas ocupam páginas inteiras (caso da 439/2023).
+Nessas, escolha no seletor de autor a opção **"esta indicação não tem autor
+individual"**. É uma resposta, não a ausência de uma: o programa só deixa
+passar sem autor quando você marca isso. Autor em branco continua segurando a
+indicação — é o que impede uma assinatura mal lida de virar cadastro sem autor.
+
 Dois botões dessa tela existem para conferir o que vai de fato para o SAPL:
 
 - **Ver o PDF do SAPL** abre o arquivo fatiado de `output/pdfs/` — o mesmo que

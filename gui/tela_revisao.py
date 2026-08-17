@@ -29,6 +29,13 @@ from . import visual
 from .estado import data_valida
 
 IMAGENS_DIR = REVISAO_DIR / "imagens"
+
+SELECIONE = "— selecione o vereador —"
+# A resposta para as indicacoes assinadas por todos os vereadores ("Os
+# Vereadores da Camara Municipal ... INDICAM", com paginas de assinaturas).
+# E uma escolha, nao a ausencia dela: o programa so deixa passar sem autor
+# quando VOCE marca isto aqui - ver sem_autor em src/pipeline.py.
+SEM_AUTOR = "— esta indicação não tem autor individual —"
 ZOOM_MIN, ZOOM_MAX, ZOOM_PASSO = 0.3, 3.0, 0.15
 
 
@@ -232,7 +239,7 @@ class TelaRevisao(ttk.Frame):
             key=lambda a: a["nome"],
         )
         self.campo_autor.configure(
-            values=["— selecione o vereador —"] + [a["nome"] for a in self._autores])
+            values=[SELECIONE, SEM_AUTOR] + [a["nome"] for a in self._autores])
         self.indice = self._primeira_pendente()
         self.mostrar()
 
@@ -306,7 +313,12 @@ class TelaRevisao(ttk.Frame):
 
         id_manual = (linha.get("AUTOR_ID_MANUAL") or "").strip()
         escolhido = next((a for a in self._autores if str(a["id"]) == id_manual), None)
-        self.var_autor.set(escolhido["nome"] if escolhido else "— selecione o vereador —")
+        if escolhido:
+            self.var_autor.set(escolhido["nome"])
+        elif (linha.get("SEM_AUTOR") or "").strip():
+            self.var_autor.set(SEM_AUTOR)
+        else:
+            self.var_autor.set(SELECIONE)
 
         pistas = []
         if linha.get("autor_lido_pela_maquina"):
@@ -523,6 +535,7 @@ class TelaRevisao(ttk.Frame):
             return
         nome_autor = self.var_autor.get()
         autor = next((a for a in self._autores if a["nome"] == nome_autor), None)
+        sem_autor = nome_autor == SEM_AUTOR
 
         novo_numero = self.var_numero.get().strip()
         if novo_numero and not novo_numero.isdigit():
@@ -548,6 +561,7 @@ class TelaRevisao(ttk.Frame):
             numero_manual=novo_numero, data=nova_data,
             ementa=self.campo_ementa.get("1.0", "end").strip(),
             autor_id=str(autor["id"]) if autor else "",
+            sem_autor=sem_autor,
             confirmado=self.var_conferi.get(),
         )
         self.linhas = linhas_do_glossario(GLOSSARIO)

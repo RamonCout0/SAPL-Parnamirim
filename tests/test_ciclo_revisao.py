@@ -34,6 +34,95 @@ IDS = {
 }
 
 
+class TestIndicacaoSemAutor(unittest.TestCase):
+    """A indicacao assinada por TODOS os vereadores.
+
+    Caso real, 439/2023: o texto diz "Os Vereadores da Camara Municipal de
+    Parnamirim/RN ... INDICAM" e as assinaturas ocupam tres paginas inteiras.
+    Nao ha um autor individual para escolher, e a extracao nao acha nome
+    nenhum - com razao, porque sao treze.
+
+    A tentacao seria deixar de exigir autor. Nao da: aquela exigencia e o que
+    segura a indicacao cuja assinatura o OCR nao leu. Entao "nao tem autor"
+    passou a ser uma RESPOSTA sua, marcada na conferencia e gravada - e so ela
+    libera o envio.
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.correcoes = self.tmp / "correcoes.json"
+        self.glossario = self.tmp / "glossario.csv"
+        self._originais = (revisao.CORRECOES, pipeline.CORRECOES, pipeline.GLOSSARIO)
+        revisao.CORRECOES = self.correcoes
+        pipeline.CORRECOES = self.correcoes
+        pipeline.GLOSSARIO = self.glossario
+
+    def tearDown(self):
+        revisao.CORRECOES, pipeline.CORRECOES, pipeline.GLOSSARIO = self._originais
+
+    def _linha(self) -> dict:
+        return {"numero": "439", "ano": "2023", "paginas": "134-139",
+                "precisa": "data, ementa, autor", "NUMERO_MANUAL": "",
+                "DATA_MANUAL": "", "EMENTA_MANUAL": "", "AUTOR_ID_MANUAL": "",
+                "SEM_AUTOR": "", "CONFIRMAR": "", "motivo": ""}
+
+    def test_autor_vazio_continua_faltando(self):
+        """O caso comum: a maquina nao leu a assinatura. Tem de parar."""
+        self.assertIn("autor", revisao.falta_em(self._linha()))
+
+    def test_marcar_sem_autor_resolve_a_exigencia(self):
+        linha = self._linha()
+        linha["SEM_AUTOR"] = "sim"
+        self.assertNotIn("autor", revisao.falta_em(linha))
+
+    def test_sem_autor_e_gravado_no_correcoes(self):
+        revisao.escrever_glossario([self._linha()], self.glossario)
+        revisao.salvar_correcao(self.glossario, "439", "2023", paginas="134-139",
+                                sem_autor=True, data="22/03/2023",
+                                ementa="APOIO DAS FORCAS ARMADAS AO ESTADO.")
+        guardado = revisao.ler_correcoes(self.correcoes)["439/2023"]
+        self.assertTrue(guardado["sem_autor"])
+
+    def test_escolher_vereador_desfaz_o_sem_autor(self):
+        """Sao respostas opostas para a mesma pergunta: a ultima vale."""
+        revisao.registrar_correcao("439/2023", sem_autor=True,
+                                   caminho=self.correcoes)
+        revisao.registrar_correcao("439/2023", autor_id=11,
+                                   caminho=self.correcoes)
+        guardado = revisao.ler_correcoes(self.correcoes)["439/2023"]
+        self.assertEqual(guardado["autor_id"], 11)
+        self.assertNotIn("sem_autor", guardado)
+
+    def test_indicacao_marcada_fica_pronta(self):
+        revisao.registrar_correcao(
+            "439/2023", sem_autor=True, data="22/03/2023",
+            ementa="APOIO DAS FORCAS ARMADAS PARA A SEGURANCA DO ESTADO DO RN.",
+            caminho=self.correcoes)
+        ind = indicacao(numero=439, ano=2023, numero_lido=439,
+                        data_apresentacao="", confianca=1.0)
+
+        _aplicar_correcoes_manuais([ind], IDS, ResolvedorFalso())
+        _classificar(ind)
+
+        self.assertTrue(ind.sem_autor)
+        self.assertEqual(ind.status, "pronto", ind.motivos)
+
+    def test_sem_a_marca_continua_em_revisao(self):
+        """A mesma indicacao, sem a sua marca, NAO passa."""
+        revisao.registrar_correcao(
+            "439/2023", data="22/03/2023",
+            ementa="APOIO DAS FORCAS ARMADAS PARA A SEGURANCA DO ESTADO DO RN.",
+            caminho=self.correcoes)
+        ind = indicacao(numero=439, ano=2023, numero_lido=439,
+                        data_apresentacao="", confianca=1.0)
+
+        _aplicar_correcoes_manuais([ind], IDS, ResolvedorFalso())
+        _classificar(ind)
+
+        self.assertEqual(ind.status, "revisao")
+        self.assertIn("autor", ind.falta)
+
+
 class ResolvedorFalso:
     """So o suficiente para _aplicar_correcoes_manuais: aprender aliases nao e
     o que estes testes verificam."""

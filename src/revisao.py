@@ -46,7 +46,8 @@ from .config import CONFIG_DIR
 # nesses casos nao adianta nada, porque o motivo que esta bloqueando e outro.
 # Escreva "sim" em CONFIRMAR para dizer "eu vi a pagina, esta tudo certo assim
 # mesmo".
-COLUNAS_MANUAIS = ["NUMERO_MANUAL", "EMENTA_MANUAL", "AUTOR_ID_MANUAL", "CONFIRMAR"]
+COLUNAS_MANUAIS = ["NUMERO_MANUAL", "EMENTA_MANUAL", "AUTOR_ID_MANUAL",
+                   "SEM_AUTOR", "CONFIRMAR"]
 
 # Ordem pensada para quem abre o CSV bruto (nao no Excel): as colunas que voce
 # de fato edita ficam logo no comeco da linha, antes dos textos longos
@@ -72,6 +73,17 @@ CABECALHO_GLOSSARIO = [
     "DATA_MANUAL",
     "EMENTA_MANUAL",
     "AUTOR_ID_MANUAL",
+    # "sim" quando a indicacao NAO TEM autor individual - o caso das assinadas
+    # por todos os vereadores, em que o texto diz "Os Vereadores da Camara
+    # Municipal ... INDICAM" e as assinaturas ocupam tres paginas.
+    #
+    # Existe como coluna propria, e nao como um AUTOR_ID_MANUAL vazio, porque
+    # sao duas coisas diferentes e o programa precisa distinguir: campo vazio e
+    # "a maquina nao conseguiu ler o autor" (tem de parar e chamar voce);
+    # SEM_AUTOR e "eu olhei e nao ha autor individual" (pode seguir). Se a
+    # falta de autor simplesmente deixasse de ser exigida, toda indicacao com
+    # assinatura ilegivel iria calada para o SAPL sem autor nenhum.
+    "SEM_AUTOR",
     "CONFIRMAR",
     "precisa",
     "data_lida_pela_maquina",
@@ -138,6 +150,7 @@ def registrar_correcao(
     data: str | None = None,
     ementa: str | None = None,
     autor_id: int | None = None,
+    sem_autor: bool | None = None,
     confirmado: bool | None = None,
     caminho: Path | None = None,
 ) -> None:
@@ -165,6 +178,16 @@ def registrar_correcao(
     if autor_id is not None:
         item["autor_id"] = int(autor_id)
         item.pop("autor_id_invalido", None)
+        # Escolher um vereador desfaz o "nao tem autor": sao respostas opostas
+        # para a mesma pergunta, e a ultima e a que vale.
+        item.pop("sem_autor", None)
+    if sem_autor is not None:
+        if sem_autor:
+            item["sem_autor"] = True
+            item.pop("autor_id", None)
+            item.pop("autor_id_invalido", None)
+        else:
+            item.pop("sem_autor", None)
     if confirmado is not None:
         if confirmado:
             item["confirmado"] = True
@@ -202,7 +225,7 @@ def importar_do_glossario(
         atual = dict(correcoes.get(identificador, {}))
         novo = dict(atual)
         for chave in ("numero", "data", "ementa", "autor_id",
-                      "autor_id_invalido", "confirmado"):
+                      "autor_id_invalido", "sem_autor", "confirmado"):
             if chave in item:
                 novo[chave] = item[chave]
         # Autor corrigido depois de um valor invalido: o aviso antigo some.
@@ -422,7 +445,16 @@ def falta_em(linha: dict) -> list[str]:
     depois de meia correcao, e continuava indo para revisao em toda rodada do
     pipeline - o usuario via o defeito ser ignorado, sem entender por que.
     """
-    return [p for p in precisa_de(linha) if not (linha.get(CAMPO_DE[p]) or "").strip()]
+    faltando = []
+    for exigencia in precisa_de(linha):
+        if (linha.get(CAMPO_DE[exigencia]) or "").strip():
+            continue
+        # "não tem autor" e uma RESPOSTA para a exigencia de autor, tanto
+        # quanto escolher um vereador. Ver SEM_AUTOR em CABECALHO_GLOSSARIO.
+        if exigencia == "autor" and (linha.get("SEM_AUTOR") or "").strip():
+            continue
+        faltando.append(exigencia)
+    return faltando
 
 
 def ja_revisada(linha: dict) -> bool:
@@ -439,6 +471,7 @@ def salvar_correcao(
     data: str = "",
     ementa: str = "",
     autor_id: str = "",
+    sem_autor: bool = False,
     confirmado: bool = False,
 ) -> None:
     """Grava a correcao nos DOIS lugares, na ordem que importa.
@@ -492,6 +525,7 @@ def salvar_correcao(
         data=data,
         ementa=ementa,
         autor_id=int(autor_id) if str(autor_id).strip().isdigit() else None,
+        sem_autor=sem_autor,
         confirmado=confirmado or confirmou_numero,
     )
 
@@ -505,6 +539,8 @@ def salvar_correcao(
         alvo["EMENTA_MANUAL"] = ementa
         if str(autor_id).strip():
             alvo["AUTOR_ID_MANUAL"] = str(autor_id)
+            alvo["SEM_AUTOR"] = ""
+        alvo["SEM_AUTOR"] = "sim" if sem_autor else alvo.get("SEM_AUTOR", "")
         alvo["CONFIRMAR"] = "sim" if (confirmado or confirmou_numero) else ""
     escrever_glossario(linhas, caminho_glossario)
 
@@ -587,6 +623,7 @@ def ler_glossario(caminho: Path) -> dict[str, dict]:
             ementa = (linha.get("EMENTA_MANUAL") or "").strip()
             autor = (linha.get("AUTOR_ID_MANUAL") or "").strip()
             confirmar = (linha.get("CONFIRMAR") or "").strip()
+            sem_autor = (linha.get("SEM_AUTOR") or "").strip()
             num_manual = (linha.get("NUMERO_MANUAL") or "").strip()
             data_manual = (linha.get("DATA_MANUAL") or "").strip()
             if not ementa and not autor and not confirmar and not num_manual \
@@ -606,6 +643,8 @@ def ler_glossario(caminho: Path) -> dict[str, dict]:
                     item["autor_id"] = int(autor)
                 except ValueError:
                     item["autor_id_invalido"] = autor
+            if sem_autor:
+                item["sem_autor"] = True
             if confirmar:
                 item["confirmado"] = True
             preenchidos[chave_da_correcao(
