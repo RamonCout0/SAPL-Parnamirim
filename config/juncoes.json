@@ -1,0 +1,8 @@
+{
+ "_doc": "Blocos marcados como continuacao do bloco anterior, por arquivo de origem. A chave e o nome do PDF de entrada; a lista traz as paginas em que aquele bloco comecava. Na proxima rodada o pipeline nao abre bloco nessas paginas - elas passam a fazer parte da indicacao de cima.",
+ "juncoes": {
+  "TODAS_INDICAÇÕES_ATUALIZADAS_frenteverso_500_A_401@2023.pdf": [
+   30
+  ]
+ }
+}

@@ -143,6 +143,25 @@ cima, em vermelho, o que ainda falta naquela indicação ("Ainda falta: ementa,
 autor"). Corrija, clique em **Salvar e continuar**, e ele vai para a próxima.
 O número entre parênteses na aba diz quantas ainda faltam.
 
+**Indicação sem autor individual.** Algumas são assinadas por todos os
+vereadores — o texto diz *"Os Vereadores da Câmara Municipal de Parnamirim/RN
+[...] INDICAM"* e as assinaturas ocupam páginas inteiras (caso da 439/2023).
+Nessas, escolha no seletor de autor a opção **"esta indicação não tem autor
+individual"**. É uma resposta, não a ausência de uma: o programa só deixa
+passar sem autor quando você marca isso. Autor em branco continua segurando a
+indicação — é o que impede uma assinatura mal lida de virar cadastro sem autor.
+
+Dois botões dessa tela existem para conferir o que vai de fato para o SAPL:
+
+- **Ver o PDF do SAPL** abre o arquivo fatiado de `output/pdfs/` — o mesmo que
+  será anexado. As imagens ao lado mostram o conteúdo; só o PDF prova o que o
+  SAPL vai receber.
+- **Esta é continuação da anterior — juntar ↑** é a saída para quando a máquina
+  partiu uma indicação em duas (uma folha de anexo lida como começo, um
+  cabeçalho destruído no meio). As páginas passam para a indicação de cima e
+  viram um PDF só. Fica gravado em `config/juncoes.json` e vale para sempre —
+  não precisa refazer a cada rodada. Vale a partir do processamento seguinte.
+
 **3. Enviar ao SAPL** — abre o Firefox com o formulário preenchido: número,
 ano, ementa, autor, data de apresentação e o PDF anexado, tudo pelo programa.
 A partir daí, dois botões:
@@ -171,6 +190,25 @@ Duas travas que valem repetir:
 Se você corrigiu alguma coisa na aba 2 e ainda não processou o lote de novo, a
 aba 3 avisa em vermelho e **bloqueia o envio automático** — o que está na lista
 ainda é o texto antigo.
+
+### Retomar de onde você parou
+
+A caixa **Fila de envio** manda nos dois botões, o manual e o automático.
+
+- **Começar do número** corta a fila naquela indicação. O corte é pela posição
+  na lista, não pela grandeza do número: no lote de 2023, que desce de 400 a
+  301, digitar 350 tira as 400–351; no de 2022, que sobe de 601 a 710, digitar
+  650 tira as 601–649. Enquanto você digita, a frase abaixo do campo diz
+  exatamente o que vai acontecer (*"Vai da 350/2023 até a 301/2023 — 50
+  indicação(ões), deixando 50 de fora"*).
+- **Já enviei até aqui** tira essas anteriores da fila **de vez**. É para as
+  que você cadastrou à mão, antes de o programa existir ou fora dele: ele não
+  tem como saber delas sozinho, e sem isso elas voltavam para a fila toda
+  sessão, o contador ficava errado e *todas* queria dizer "as 400 de novo".
+  Elas aparecem na tabela como **"marcada por você"** — diferente de
+  **"cadastrada"**, que é o que o programa fez e conferiu na tela do SAPL. Se
+  errar o número, o botão *Desfazer* aparece ao lado e devolve todas para a
+  fila.
 
 ## A data de apresentação: onde ela está, e por que não dá para lê-la
 

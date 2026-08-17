@@ -59,10 +59,22 @@ def ler_enviados(caminho: Path | None = None) -> dict[str, dict]:
     return enviados
 
 
+# De onde veio a informacao de que a indicacao ja esta no SAPL.
+#
+# A diferenca importa e por isso fica gravada: "automatico" quer dizer que o
+# programa clicou em salvar e CONFIRMOU na tela que a materia entrou.
+# "declarado" quer dizer que voce afirmou que ja tinha enviado a mao - o
+# programa nao viu acontecer e nao tem como conferir. As duas tiram a indicacao
+# da fila, mas so a primeira e testemunha do fato.
+AUTOMATICO = "automatico"
+DECLARADO = "declarado"
+
+
 def registrar_envio(
     identificador: str,
     *,
     url: str = "",
+    origem: str = AUTOMATICO,
     caminho: Path | None = None,
 ) -> dict:
     """Grava que ESTA indicacao virou registro no SAPL. Devolve o registro.
@@ -70,18 +82,62 @@ def registrar_envio(
     Reler antes de gravar (em vez de manter tudo em memoria) e o que garante
     que nada se perde se o programa fechar no meio de uma sessao longa.
     """
+    return marcar_varias([identificador], url=url, origem=origem,
+                         caminho=caminho)[identificador]
+
+
+def marcar_varias(
+    identificadores: list[str],
+    *,
+    url: str = "",
+    origem: str = AUTOMATICO,
+    caminho: Path | None = None,
+) -> dict[str, dict]:
+    """Grava um lote de indicacoes de uma vez. Devolve o registro de cada uma.
+
+    Uma gravacao so para o lote inteiro: marcar 250 indicacoes uma a uma
+    reescreveria o arquivo 250 vezes, e uma interrupcao no meio deixaria o
+    registro pela metade sem ninguem saber onde parou.
+    """
     caminho = caminho or ENVIADOS
     enviados = ler_enviados(caminho)
-    # Nao sobrescreve um registro anterior: a PRIMEIRA vez e a que virou o
-    # cadastro de verdade; um segundo carimbo por cima so apagaria a pista.
-    registro = enviados.setdefault(identificador, {
-        "em": datetime.now().isoformat(timespec="seconds"),
-        "url": url,
-    })
+    agora = datetime.now().isoformat(timespec="seconds")
+    registros = {}
+    for identificador in identificadores:
+        # Nao sobrescreve um registro anterior: a PRIMEIRA vez e a que virou o
+        # cadastro de verdade; um segundo carimbo por cima so apagaria a pista.
+        # Vale principalmente aqui - marcar "ja enviei ate a 250" nao pode
+        # rebaixar para "declarado" uma que o programa cadastrou e conferiu.
+        registros[identificador] = enviados.setdefault(identificador, {
+            "em": agora,
+            "url": url,
+            "origem": origem,
+        })
     caminho.parent.mkdir(parents=True, exist_ok=True)
     caminho.write_text(
         json.dumps({"_doc": _DOC, "enviados": enviados},
                    ensure_ascii=False, indent=1, sort_keys=True),
         encoding="utf-8",
     )
-    return registro
+    return registros
+
+
+def esquecer(identificadores: list[str], caminho: Path | None = None) -> int:
+    """Tira indicacoes do registro - o desfazer de marcar_varias.
+
+    Existe porque marcar "ja enviei ate aqui" e um clique so que apaga dezenas
+    de indicacoes da fila. Um clique com esse alcance precisa de volta.
+    """
+    caminho = caminho or ENVIADOS
+    enviados = ler_enviados(caminho)
+    tirados = 0
+    for identificador in identificadores:
+        if enviados.pop(identificador, None) is not None:
+            tirados += 1
+    if tirados:
+        caminho.write_text(
+            json.dumps({"_doc": _DOC, "enviados": enviados},
+                       ensure_ascii=False, indent=1, sort_keys=True),
+            encoding="utf-8",
+        )
+    return tirados

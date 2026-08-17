@@ -225,10 +225,19 @@ def preencher(pagina, form: dict, ind: dict) -> tuple[list[str], list[str]]:
                 "conferência (ela está no carimbo do verso)")
             continue
 
+        if nome in ("autor", "tipo_autor") and ind.get("sem_autor"):
+            # Voce marcou na conferencia que esta indicacao nao tem autor
+            # individual (a assinada por todos os vereadores). Os dois selects
+            # ficam como o SAPL os deixa, e isto NAO vira recado: recado aqui
+            # pararia o envio automatico em toda indicacao desse tipo, que e
+            # justamente o contrario do que marcar "sem autor" quer dizer.
+            continue
+
         if nome == "autor" and str(valor or "0").strip() == "0":
-            # Autor nao resolvido. Como "pronto" exige autor, isto nao devia
-            # chegar aqui - mas se chegar, nao adianta insistir tres vezes com
-            # um id que nao existe: avisa e segue.
+            # Autor nao resolvido - diferente de "nao tem autor", tratado logo
+            # acima. Como "pronto" exige autor, isto nao devia chegar aqui -
+            # mas se chegar, nao adianta insistir tres vezes com um id que nao
+            # existe: avisa e segue.
             notas.append(
                 "autor não identificado no documento - escolha à mão na tela "
                 "do SAPL")
@@ -542,6 +551,22 @@ def cortar_do_numero(itens: list[dict], alvo: int) -> list[dict]:
     return []
 
 
+def antes_do_numero(itens: list[dict], alvo: int) -> list[dict]:
+    """O que vem ANTES da indicacao `alvo` na fila - o complemento exato de
+    cortar_do_numero.
+
+    E o que o botao "Já enviei até aqui" tira da fila. Definido como
+    complemento, e nao com uma comparacao propria (`numero > alvo`, digamos),
+    de proposito: assim as duas metades nunca discordam. Uma regra escrita
+    duas vezes e uma regra que um dia vai ser corrigida so num dos lugares - e
+    aqui isso significaria marcar como enviada uma indicacao que nao foi.
+    """
+    daqui = cortar_do_numero(itens, alvo)
+    if not daqui:
+        return []
+    return itens[:len(itens) - len(daqui)]
+
+
 def cortar_ate_numero(itens: list[dict], alvo: int) -> list[dict]:
     """A fila ATE a indicacao de numero `alvo`, inclusive.
 
@@ -588,7 +613,11 @@ def impedimentos(item: dict, correcoes: dict, enviados: dict) -> list[str]:
 
     if not str(item.get("data_apresentacao") or "").strip():
         razoes.append("sem data de apresentação")
-    if not int(item.get("autor_id") or 0):
+    # "nao tem autor" so passa quando FOI VOCE que disse isso na conferencia
+    # (ver sem_autor em pipeline.Indicacao). Autor vazio sem essa marca
+    # continua sendo impedimento - e a diferenca entre uma decisao sua e uma
+    # leitura que falhou.
+    if not int(item.get("autor_id") or 0) and not item.get("sem_autor"):
         razoes.append("sem autor definido")
     if not str(item.get("ementa") or "").strip():
         razoes.append("sem ementa")

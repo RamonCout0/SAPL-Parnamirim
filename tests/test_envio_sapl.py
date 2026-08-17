@@ -71,6 +71,14 @@ class Elemento:
     def all_inner_texts(self) -> list[str]:
         return self.textos
 
+    def evaluate(self, js: str):
+        return "select"
+
+    def input_value(self) -> str:
+        return self.valor
+
+    valor = ""
+
     def scroll_into_view_if_needed(self, timeout: int = 0) -> None:
         pass
 
@@ -246,8 +254,16 @@ class TestImpedimentos(unittest.TestCase):
         self.assertIn("sem data de apresentação", travas)
 
     def test_sem_autor_nao_passa(self):
+        """Autor vazio e leitura que falhou: tem de parar."""
         travas = sapl.impedimentos(indicacao(autor_id=0), {}, {})
         self.assertIn("sem autor definido", travas)
+
+    def test_marcada_como_sem_autor_passa(self):
+        """A 439/2023 e assinada por todos os vereadores - nao ha autor
+        individual, e voce marcou isso na conferencia. Essa passa."""
+        travas = sapl.impedimentos(
+            indicacao(autor_id=0, sem_autor=True), {}, {})
+        self.assertNotIn("sem autor definido", travas)
 
     def test_sem_ementa_nao_passa(self):
         travas = sapl.impedimentos(indicacao(ementa="   "), {}, {})
@@ -428,6 +444,161 @@ class TestRegistroDeEnviados(unittest.TestCase):
         self.arquivo.write_text(json.dumps({"enviados": []}), encoding="utf-8")
         with self.assertRaises(ValueError):
             mod_enviados.ler_enviados(self.arquivo)
+
+
+class TestPreencherSemAutor(unittest.TestCase):
+    """O preenchimento nao pode reclamar de um autor que voce disse nao existir.
+
+    Se reclamasse, o recado ("autor não identificado") pararia o envio
+    automatico em TODA indicacao assinada por todos os vereadores - o oposto
+    exato do que marcar "não tem autor individual" quer dizer.
+    """
+
+    CAMPOS = ("tipo_materia", "ano", "regime_tramitacao", "tipo_apresentacao",
+              "data_apresentacao", "ementa", "tipo_autor", "autor", "numero")
+
+    def setUp(self):
+        self.form = {"campos": {c: [f"#id_{c}"] for c in self.CAMPOS}}
+        self.pagina = PaginaFalsa(
+            FORMULARIO, {f"#id_{c}": Elemento() for c in self.CAMPOS})
+        # Escrever de fato nos campos e assunto do Playwright; aqui interessa
+        # o que preencher() DECIDE, nao como ele digita. Os dublês guardam o
+        # valor no elemento porque preencher() RELE o campo numero no fim - o
+        # SAPL sugere um numero sozinho e pode sobrescrever o nosso.
+        self._originais = (sapl.definir_select, sapl.garantir_select,
+                           sapl.definir_texto)
+
+        def escrever(alvo, valor) -> bool:
+            alvo.valor = str(valor)
+            return True
+
+        sapl.definir_select = lambda p, a, v: escrever(a, v)
+        sapl.garantir_select = lambda p, a, v: escrever(a, v)
+        sapl.definir_texto = escrever
+
+    def tearDown(self):
+        (sapl.definir_select, sapl.garantir_select,
+         sapl.definir_texto) = self._originais
+
+    def _item(self, **extra) -> dict:
+        base = dict(numero=439, ano=2023, tipo_materia_id=6, tipo_autor_id=2,
+                    regime_id=1, tipo_apresentacao="E", autor_id=0,
+                    ementa="APOIO DAS FORÇAS ARMADAS.",
+                    data_apresentacao="22/03/2023")
+        base.update(extra)
+        return base
+
+    def test_marcada_como_sem_autor_nao_gera_recado(self):
+        falhas, notas = sapl.preencher(self.pagina, self.form,
+                                       self._item(sem_autor=True))
+        # A afirmacao e sobre o AUTOR. O recado do anexo aparece porque este
+        # formulario de teste nao tem o campo de arquivo - e isso e verdade
+        # sobre o formulario, nao sobre a indicacao.
+        sobre_autor = [m for m in falhas + notas if "autor" in m.lower()]
+        self.assertEqual(sobre_autor, [])
+
+    def test_autor_vazio_sem_a_marca_continua_avisando(self):
+        falhas, notas = sapl.preencher(self.pagina, self.form, self._item())
+        self.assertTrue(any("autor não identificado" in n for n in notas), notas)
+
+
+class TestRetomarDeOndeParou(unittest.TestCase):
+    """"Parei na 350 e as anteriores eu ja mandei a mao."
+
+    O programa so sabe das indicacoes que ELE cadastrou. Tudo que foi enviado a
+    mao - meses de trabalho, num lote que vai da 400 a 301 - e invisivel para
+    ele e voltava para a fila em toda sessao: o placar contava errado, e o
+    botao "todas" queria dizer "as 400 de novo".
+    """
+
+    FILA = [{"numero": n, "ano": 2023} for n in range(400, 300, -1)]
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.arquivo = self.tmp / "enviados.json"
+
+    def test_o_que_vem_antes_e_o_complemento_exato(self):
+        """As duas metades nao podem discordar: uma indicacao que fica de fora
+        da fila tem de estar na lista das marcadas, e vice-versa."""
+        for alvo in (400, 350, 301):
+            daqui = sapl.cortar_do_numero(self.FILA, alvo)
+            antes = sapl.antes_do_numero(self.FILA, alvo)
+            self.assertEqual(len(antes) + len(daqui), len(self.FILA))
+            self.assertEqual(antes + daqui, self.FILA)
+
+    def test_lote_decrescente_tira_os_numeros_maiores(self):
+        """Na fila de 400 a 301, parar na 350 significa que 400..351 ja foram."""
+        antes = sapl.antes_do_numero(self.FILA, 350)
+        self.assertEqual(antes[0]["numero"], 400)
+        self.assertEqual(antes[-1]["numero"], 351)
+        self.assertEqual(len(antes), 50)
+
+    def test_lote_crescente_tira_os_numeros_menores(self):
+        """No de 2022, que sobe de 601 a 710, "antes" e o contrario - e por
+        isso a regra e por POSICAO na fila, nunca por grandeza do numero."""
+        fila = [{"numero": n, "ano": 2022} for n in range(601, 711)]
+        antes = sapl.antes_do_numero(fila, 650)
+        self.assertEqual(antes[0]["numero"], 601)
+        self.assertEqual(antes[-1]["numero"], 649)
+
+    def test_primeira_da_fila_nao_tem_nada_antes(self):
+        self.assertEqual(sapl.antes_do_numero(self.FILA, 400), [])
+
+    def test_numero_fora_da_fila_nao_marca_nada(self):
+        """Digitar um numero que nao existe nao pode marcar a fila inteira como
+        enviada - seria apagar o trabalho todo com um clique."""
+        self.assertEqual(sapl.antes_do_numero(self.FILA, 250), [])
+
+    def test_marcar_tira_da_fila_e_registra_como_declarado(self):
+        antes = sapl.antes_do_numero(self.FILA, 350)
+        mod_enviados.marcar_varias(
+            [f"{i['numero']}/{i['ano']}" for i in antes],
+            origem=mod_enviados.DECLARADO, caminho=self.arquivo)
+
+        registro = mod_enviados.ler_enviados(self.arquivo)
+        self.assertEqual(len(registro), 50)
+        self.assertEqual(registro["400/2023"]["origem"], mod_enviados.DECLARADO)
+        # E o que interessa: a fila encolhe.
+        sobrou = [i for i in self.FILA
+                  if f"{i['numero']}/{i['ano']}" not in registro]
+        self.assertEqual(len(sobrou), 50)
+        self.assertEqual(sobrou[0]["numero"], 350)
+
+    def test_marcar_nao_rebaixa_o_que_o_programa_cadastrou(self):
+        """A 380 o programa cadastrou e conferiu na tela. Marcar "ja enviei ate
+        a 350" passa por cima dela - e nao pode apagar essa prova."""
+        mod_enviados.registrar_envio("380/2023", url="http://x/materia/9",
+                                     caminho=self.arquivo)
+        mod_enviados.marcar_varias(
+            [f"{i['numero']}/{i['ano']}" for i in sapl.antes_do_numero(self.FILA, 350)],
+            origem=mod_enviados.DECLARADO, caminho=self.arquivo)
+
+        guardado = mod_enviados.ler_enviados(self.arquivo)["380/2023"]
+        self.assertEqual(guardado["origem"], mod_enviados.AUTOMATICO)
+        self.assertEqual(guardado["url"], "http://x/materia/9")
+
+    def test_desfazer_devolve_para_a_fila(self):
+        """Um clique que tira 50 indicacoes da fila precisa de volta."""
+        chaves = [f"{i['numero']}/{i['ano']}"
+                  for i in sapl.antes_do_numero(self.FILA, 350)]
+        mod_enviados.marcar_varias(chaves, origem=mod_enviados.DECLARADO,
+                                   caminho=self.arquivo)
+
+        tirados = mod_enviados.esquecer(chaves, caminho=self.arquivo)
+
+        self.assertEqual(tirados, 50)
+        self.assertEqual(mod_enviados.ler_enviados(self.arquivo), {})
+
+    def test_uma_gravacao_so_para_o_lote_inteiro(self):
+        """Marcar 50 uma a uma reescreveria o arquivo 50 vezes; uma queda no
+        meio deixaria o registro pela metade, sem ninguem saber onde parou."""
+        chaves = [f"{i['numero']}/{i['ano']}"
+                  for i in sapl.antes_do_numero(self.FILA, 350)]
+        registros = mod_enviados.marcar_varias(
+            chaves, origem=mod_enviados.DECLARADO, caminho=self.arquivo)
+        self.assertEqual(len(registros), 50)
+        # Todas com o mesmo carimbo de hora: prova de que foi uma passada so.
+        self.assertEqual(len({r["em"] for r in registros.values()}), 1)
 
 
 if __name__ == "__main__":

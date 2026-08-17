@@ -13,7 +13,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
 
-from src.config import carregar_ids
+from src.config import PDFS_DIR, carregar_ids
+from src.juncoes import juntar
 from src.pipeline import GLOSSARIO, REVISAO_DIR
 from src.revisao import (
     ROTULO_DE,
@@ -28,6 +29,13 @@ from . import visual
 from .estado import data_valida
 
 IMAGENS_DIR = REVISAO_DIR / "imagens"
+
+SELECIONE = "— selecione o vereador —"
+# A resposta para as indicacoes assinadas por todos os vereadores ("Os
+# Vereadores da Camara Municipal ... INDICAM", com paginas de assinaturas).
+# E uma escolha, nao a ausencia dela: o programa so deixa passar sem autor
+# quando VOCE marca isto aqui - ver sem_autor em src/pipeline.py.
+SEM_AUTOR = "— esta indicação não tem autor individual —"
 ZOOM_MIN, ZOOM_MAX, ZOOM_PASSO = 0.3, 3.0, 0.15
 
 
@@ -97,6 +105,11 @@ class TelaRevisao(ttk.Frame):
         self.botao_carimbo.pack(side="left", padx=visual.px(4))
         ttk.Button(ferramentas, text="Abrir a imagem",
                    command=self.abrir_imagem).pack(side="left")
+        # Abre o PDF FATIADO - o arquivo que vai ser anexado no SAPL, com as
+        # paginas exatas deste bloco. As imagens ao lado mostram o mesmo
+        # conteudo, mas so o PDF prova o que o SAPL vai receber.
+        ttk.Button(ferramentas, text="Ver o PDF do SAPL",
+                   command=self.abrir_pdf).pack(side="left", padx=visual.px(4))
 
         moldura = ttk.Frame(caixa)
         moldura.pack(fill="both", expand=True)
@@ -198,6 +211,20 @@ class TelaRevisao(ttk.Frame):
         ttk.Button(botoes, text="Pular por enquanto",
                    command=self.pular).pack(side="left", padx=visual.px(8))
 
+        # A saida para quando a maquina partiu uma indicacao em duas: aqui voce
+        # olha a imagem, ve que este bloco e a continuacao do de cima, e manda
+        # juntar. Ver src/juncoes.py.
+        self.botao_juntar = ttk.Button(
+            caixa, text="Esta é continuação da anterior — juntar ↑",
+            command=self.juntar_com_anterior)
+        self.botao_juntar.pack(anchor="w", fill="x", pady=(visual.px(10), 0))
+        self.ajuda_juntar = visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left",
+            text="Use quando este bloco não for uma indicação nova e sim o "
+                 "resto da anterior (uma folha de anexo, um verso solto). As "
+                 "páginas passam para a indicação de cima e viram um PDF só."))
+        self.ajuda_juntar.pack(anchor="w", fill="x", pady=(visual.px(2), 0))
+
         self.rodape = visual.fluido(ttk.Label(
             caixa, style="Ajuda.TLabel", justify="left", text=""))
         self.rodape.pack(anchor="w", fill="x", pady=(visual.px(12), 0))
@@ -212,7 +239,7 @@ class TelaRevisao(ttk.Frame):
             key=lambda a: a["nome"],
         )
         self.campo_autor.configure(
-            values=["— selecione o vereador —"] + [a["nome"] for a in self._autores])
+            values=[SELECIONE, SEM_AUTOR] + [a["nome"] for a in self._autores])
         self.indice = self._primeira_pendente()
         self.mostrar()
 
@@ -286,7 +313,12 @@ class TelaRevisao(ttk.Frame):
 
         id_manual = (linha.get("AUTOR_ID_MANUAL") or "").strip()
         escolhido = next((a for a in self._autores if str(a["id"]) == id_manual), None)
-        self.var_autor.set(escolhido["nome"] if escolhido else "— selecione o vereador —")
+        if escolhido:
+            self.var_autor.set(escolhido["nome"])
+        elif (linha.get("SEM_AUTOR") or "").strip():
+            self.var_autor.set(SEM_AUTOR)
+        else:
+            self.var_autor.set(SELECIONE)
 
         pistas = []
         if linha.get("autor_lido_pela_maquina"):
@@ -426,6 +458,63 @@ class TelaRevisao(ttk.Frame):
         if altura_total:
             self.tela.yview_moveto((self._fotos[0].height() + 10) / altura_total)
 
+    def abrir_pdf(self) -> None:
+        """Abre o PDF fatiado desta indicacao - o que vai ser anexado."""
+        linha = self.atual
+        if not linha:
+            return
+        numero = (linha.get("NUMERO_MANUAL") or "").strip() or linha.get("numero", "")
+        caminho = PDFS_DIR / f"{numero}-{linha.get('ano', '')}.pdf"
+        if caminho.is_file():
+            self.app.abrir_no_explorador(caminho)
+            return
+        messagebox.showinfo(
+            "PDF ainda não existe",
+            f"O arquivo {caminho.name} não está em output\\pdfs.\n\n"
+            "Ele é gerado quando o lote é processado. Se você acabou de "
+            "corrigir o número, processe de novo na primeira aba — o PDF "
+            "passa a se chamar pelo número novo.")
+
+    def juntar_com_anterior(self) -> None:
+        """Marca este bloco como continuacao do de cima.
+
+        A juncao nao muda nada agora: ela e gravada e vale na proxima rodada do
+        pipeline, que e quem monta os blocos e fatia os PDFs. E o mesmo caminho
+        das correcoes - por isso a tela oferece reprocessar logo em seguida.
+        """
+        linha = self.atual
+        if not linha:
+            return
+        arquivo = (linha.get("arquivo") or "").strip()
+        paginas = (linha.get("paginas") or "").strip()
+        inicial = paginas.split("-")[0].strip()
+        if not arquivo or not inicial.isdigit():
+            messagebox.showinfo(
+                "Falta a origem desta indicação",
+                "Esta linha do glossário é de uma versão anterior do programa "
+                "e não diz de qual PDF ela veio.\n\nProcesse o lote de novo na "
+                "primeira aba e o botão passa a funcionar.")
+            return
+
+        if not messagebox.askyesno(
+            "Juntar com a anterior",
+            f"As páginas {paginas} deixam de ser uma indicação própria e "
+            f"passam a fazer parte da indicação imediatamente acima delas no "
+            f"arquivo {arquivo}.\n\n"
+            "Vale a partir do próximo processamento, e fica gravado — não "
+            "precisa refazer nas próximas vezes.\n\nJuntar?",
+        ):
+            return
+
+        juntar(arquivo, int(inicial))
+        if messagebox.askyesno(
+            "Juntado",
+            "Marcado. Para as páginas realmente passarem para a indicação de "
+            "cima (e o PDF virar um só), o lote precisa ser processado de "
+            "novo.\n\nProcessar agora?",
+        ):
+            self.app.processar_de_novo()
+
     def abrir_imagem(self) -> None:
         linha = self.atual
         if not linha:
@@ -446,6 +535,7 @@ class TelaRevisao(ttk.Frame):
             return
         nome_autor = self.var_autor.get()
         autor = next((a for a in self._autores if a["nome"] == nome_autor), None)
+        sem_autor = nome_autor == SEM_AUTOR
 
         novo_numero = self.var_numero.get().strip()
         if novo_numero and not novo_numero.isdigit():
@@ -471,6 +561,7 @@ class TelaRevisao(ttk.Frame):
             numero_manual=novo_numero, data=nova_data,
             ementa=self.campo_ementa.get("1.0", "end").strip(),
             autor_id=str(autor["id"]) if autor else "",
+            sem_autor=sem_autor,
             confirmado=self.var_conferi.get(),
         )
         self.linhas = linhas_do_glossario(GLOSSARIO)

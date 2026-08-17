@@ -55,6 +55,8 @@ from .detect import (
     marcar_suspeitos,
     montar_blocos,
 )
+from .juncoes import JUNCOES
+from .juncoes import aplicar as aplicar_juncoes
 from .progresso import Progresso
 from .revisao import (
     CORRECOES,
@@ -115,6 +117,12 @@ class Indicacao:
     tipo_apresentacao: str = "E"     # sempre Escrita ("O" seria Oral)
     autor_id: int = 0
     autor_nome_sapl: str = ""
+    # Voce olhou a indicacao e disse: ela nao tem autor individual. E o caso
+    # das assinadas por todos os vereadores ("Os Vereadores da Camara ...
+    # INDICAM", com tres paginas de assinaturas). Diferente de autor_id == 0,
+    # que quer dizer "a maquina nao conseguiu ler" e tem de parar e chamar
+    # voce - por isso sao dois campos e nao um.
+    sem_autor: bool = False
     ementa: str = ""
     # Data de apresentacao DESTA indicacao: a do carimbo "Lido na Sessão", no
     # verso. Cada uma tem a sua - num lote real ha 48 datas diferentes entre
@@ -351,6 +359,14 @@ def _extrair_um_pdf(
     print(f"  {len(paginas)} paginas")
 
     inicios, citacoes = classificar_paginas(paginas)
+    # As juncoes que voce fez a mao entram AQUI, antes de qualquer conta sobre
+    # a sequencia: um bloco que nao devia existir nao pode virar ancora nem
+    # buraco no calculo do passo.
+    antes = len(inicios)
+    inicios = aplicar_juncoes(inicios, Path(caminho_pdf).name)
+    if len(inicios) != antes:
+        print(f"  {antes - len(inicios)} bloco(s) juntados ao anterior "
+              f"(marcados por voce em {JUNCOES.name})")
     # Ordem obrigatoria: marcar os suspeitos ANTES de deduzir, senao um numero
     # lido errado vira ancora e estraga a deducao das vizinhas.
     inicios = inferir_numeros(marcar_suspeitos(inicios), ano)
@@ -566,6 +582,12 @@ def _aplicar_correcoes_manuais(
                 ind.autor_no_documento, manual["autor_id"], ind.identificador
             ):
                 aprendidos.append(f"{ind.autor_no_documento} -> {ind.autor_nome_sapl}")
+        if manual.get("sem_autor"):
+            ind.sem_autor = True
+            ind.autor_id = 0
+            ind.autor_nome_sapl = ""
+            ind.autor_origem = "sem autor (você conferiu)"
+            ind.motivos = [m for m in ind.motivos if not m.startswith("autor")]
         if manual.get("autor_id_invalido"):
             ind.motivos.append(
                 f"autor: AUTOR_ID_MANUAL '{manual['autor_id_invalido']}' nao e numero"
@@ -667,7 +689,11 @@ def _classificar(ind: Indicacao) -> None:
     # que quem resolve isto e o campo de ementa, e nao o "ja conferi".
     if ind.confianca < CONFIANCA_MIN and not manual:
         motivos.append(f"ementa: confianca baixa ({ind.confianca})")
-    if not ind.autor_id:
+    # sem_autor e uma resposta dada por voce, nao a falta de uma. Sem essa
+    # distincao, so haveria duas saidas ruins: ou esta indicacao ficava presa
+    # na fila para sempre, ou o autor deixava de ser exigido de todo mundo e
+    # qualquer assinatura ilegivel passava calada.
+    if not ind.autor_id and not ind.sem_autor:
         if not any(m.startswith("autor") for m in motivos):
             motivos.append("autor nao identificado")
     # Sem data nao da para cadastrar: e o programa que preenche o campo no
@@ -884,6 +910,7 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
             "numero": ind.numero_lido or ind.numero,
             "ano": ind.ano,
             "paginas": f"{ind.pagina_inicial}-{ind.pagina_final}",
+            "arquivo": Path(ind.arquivo_origem).name,
             "NUMERO_MANUAL": ja.get("numero", ""),
             "DATA_MANUAL": ja.get("data", ""),
             "data_lida_pela_maquina": (
@@ -904,6 +931,7 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
             ),
             "sugestao_ollama_autor": ind.sugestao_autor_ollama,
             "AUTOR_ID_MANUAL": autor_manual,
+            "SEM_AUTOR": "sim" if ja.get("sem_autor") else "",
             "CONFIRMAR": "sim" if ja.get("confirmado") else "",
         })
 

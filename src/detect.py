@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import re
 import statistics
+import unicodedata
 from dataclasses import dataclass, field
 
 from .textlayer import Pagina
@@ -95,6 +96,20 @@ MARCADORES_INICIO = [
 # marcador so conta se aparecer perto do topo da pagina.
 JANELA_MARCADOR_INICIO = 280
 
+# O "cartao-resumo": a folha que a assessoria de alguns vereadores anexa DEPOIS
+# da indicacao, repetindo o assunto em linhas curtas e com a foto do problema:
+#
+#     INDICAÇÃO: 465/2023 - 27/03/2023 - CÂMARA MUNICIPAL DE PARNAMIRIM/RN
+#     VEREADORA: FATIVAN ALVES MOURA DE PAIVA
+#     SOLICITAÇÃO: RECUPERAÇÃO DE TAMPA DE ESGOTO NA RUA PADRE OLIVEIRA ROLIM.
+#     BAIRRO: LIBERDADE.
+#
+# Ela pertence a indicacao anterior e NAO abre bloco novo. "solicitacao:" com
+# dois pontos e o que a identifica: medido no lote 500-401, aparece em 2 das
+# 191 paginas - as duas cartoes, nenhuma com a formula juridica de abertura.
+MARCADORES_CARTAO = ["solicitacao:"]
+JANELA_CARTAO = 600
+
 # Paginas de verso: a folha com o carimbo "Lido na Sessão" e a data.
 MARCADORES_VERSO = [
     "lido na sess",
@@ -135,6 +150,11 @@ class Inicio:
     # O numero foi lido, mas nao conversa com nenhum vizinho da sequencia -
     # quase sempre OCR destruido no cabecalho. Ver marcar_suspeitos.
     numero_suspeito: bool = False
+    # Em que pagina o numero foi lido, quando NAO foi no cabecalho da primeira
+    # pagina e sim no cartao-resumo do fim do bloco. 0 = veio do cabecalho.
+    # Fica registrado porque e um caminho menos obvio: quem conferir depois
+    # precisa saber de onde o numero saiu.
+    numero_do_cartao: int = 0
 
 
 @dataclass
@@ -145,6 +165,7 @@ class Bloco:
     pagina_final: int
     numero_inferido: bool = False
     numero_suspeito: bool = False
+    numero_do_cartao: int = 0
     avisos: list[str] = field(default_factory=list)
 
     @property
@@ -165,6 +186,24 @@ class Bloco:
 def _tem(texto: str, marcadores: list[str]) -> bool:
     baixo = texto.lower()
     return any(m in baixo for m in marcadores)
+
+
+def _sem_acento(texto: str) -> str:
+    """Compara texto de OCR sem depender de acento.
+
+    O OCR troca "SOLICITAÇÃO" por "SOLICITACAO" e "SOLICITAÇAO" conforme a
+    qualidade da folha; a palavra e a mesma.
+    """
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+def _tem_formato_de_cartao(texto: str) -> bool:
+    """A pagina tem a cara do cartao-resumo (ver MARCADORES_CARTAO)?"""
+    topo = _sem_acento(texto[:JANELA_CARTAO])
+    return any(m in topo for m in MARCADORES_CARTAO)
 
 
 def _tem_estrutura_de_abertura(texto: str) -> bool:
@@ -219,20 +258,28 @@ def classificar_paginas(
         verso = _tem(p.texto, MARCADORES_VERSO) and p.densidade < DENSIDADE_MINIMA_INICIO
         anexo_no_topo = any(k in p.texto[:200].lower() for k in MARCADORES_ANEXO)
 
-        # "Cartao-resumo": uma pagina de formato bem diferente (linhas curtas
-        # "INDICAÇÃO: N/ANO - data - orgao" / "VEREADOR(A): nome" /
-        # "SOLICITAÇÃO: ...") que a assessoria de alguns vereadores anexa
-        # DEPOIS da propria indicacao, repetindo o mesmo numero. Sem essa
-        # checagem ela e lida como um novo inicio identico ao anterior, e a
-        # mesma indicacao vira dois blocos. O sinal e: cabecalho bate mas SEM
-        # a formula juridica de abertura, e o numero repete o do inicio
-        # imediatamente anterior - um numero diferente aqui provavelmente e
-        # coisa nova de verdade e continua sendo tratado como inicio.
+        # "Cartao-resumo" (ver MARCADORES_CARTAO): a folha de resumo com foto
+        # que vem DEPOIS da indicacao. Ela pertence ao bloco anterior; lida
+        # como inicio, parte a mesma indicacao em dois.
+        #
+        # Sao dois sinais, e o primeiro foi acrescentado depois de um caso
+        # real. O sinal antigo era so "o numero do cabecalho repete o do inicio
+        # anterior", e ele falhava exatamente quando mais fazia falta: na
+        # pagina 75 do lote 500-401 o OCR destruiu o cabecalho
+        # ("inCilcação n °. 4bb/L11L3"), o inicio ficou SEM numero, e o
+        # cartao-resumo da pagina 77 - que trazia "INDICAÇÃO: 465/2023" em
+        # letra limpa - nao tinha com o que se comparar. Resultado: virou bloco
+        # proprio, de uma pagina so, sem ementa e sem autor, e o lote terminou
+        # com duas 465. O formato da propria pagina nao depende de nada disso.
+        formato_cartao = _tem_formato_de_cartao(p.texto)
         eh_cartao_resumo = (
             cab is not None
             and not estrutura
-            and ultimo_numero is not None
-            and numero_do_cabecalho(cab.group(1)) == ultimo_numero
+            and (
+                formato_cartao
+                or (ultimo_numero is not None
+                    and numero_do_cabecalho(cab.group(1)) == ultimo_numero)
+            )
         )
 
         # Abre bloco se: tem cabecalho no topo (e nao for cartao-resumo), OU
@@ -250,12 +297,28 @@ def classificar_paginas(
             )
             ultimo_numero = numero_do_cabecalho(cab.group(1))
         elif eh_cartao_resumo:
+            numero_cartao = numero_do_cabecalho(cab.group(1))
+            # O cartao diz, em letra digitada e limpa, o numero da indicacao a
+            # que pertence. Quando o cabecalho da primeira pagina foi destruido
+            # pelo OCR, ele e a MELHOR fonte que existe para aquele numero -
+            # melhor que deduzir pela sequencia, que e o que sobraria. Antes
+            # esse numero era jogado fora e a indicacao ia para revisao pedindo
+            # um numero que estava escrito ali do lado.
+            adotado = False
+            if inicios and inicios[-1].numero is None:
+                inicios[-1].numero = numero_cartao
+                inicios[-1].ano = int(cab.group(2))
+                inicios[-1].numero_do_cartao = p.numero
+                ultimo_numero = numero_cartao
+                adotado = True
             citacoes.append(
                 {
                     "pagina": p.numero,
-                    "numero": numero_do_cabecalho(cab.group(1)),
+                    "numero": numero_cartao,
                     "ano": int(cab.group(2)),
-                    "motivo": "cartao-resumo da mesma indicacao (nao abre bloco novo)",
+                    "motivo": ("cartao-resumo: numero adotado pelo bloco anterior, "
+                               "cujo cabecalho o OCR nao leu" if adotado else
+                               "cartao-resumo da mesma indicacao (nao abre bloco novo)"),
                     "trecho": p.texto[:150].replace("\n", " "),
                 }
             )
@@ -405,6 +468,11 @@ def montar_blocos(
 
         if ini.numero_inferido:
             avisos.append("numero DEDUZIDO pela sequencia (cabecalho ilegivel) - confirmar")
+        if ini.numero_do_cartao:
+            avisos.append(
+                f"numero lido no cartao-resumo da pagina {ini.numero_do_cartao} "
+                "(o cabecalho da primeira pagina saiu ilegivel)"
+            )
 
         blocos.append(
             Bloco(
@@ -414,6 +482,7 @@ def montar_blocos(
                 pagina_final=fim,
                 numero_inferido=ini.numero_inferido,
                 numero_suspeito=ini.numero_suspeito,
+                numero_do_cartao=ini.numero_do_cartao,
                 avisos=avisos,
             )
         )
