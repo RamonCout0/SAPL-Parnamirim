@@ -143,6 +143,17 @@ cima, em vermelho, o que ainda falta naquela indicação ("Ainda falta: ementa,
 autor"). Corrija, clique em **Salvar e continuar**, e ele vai para a próxima.
 O número entre parênteses na aba diz quantas ainda faltam.
 
+Dois botões dessa tela existem para conferir o que vai de fato para o SAPL:
+
+- **Ver o PDF do SAPL** abre o arquivo fatiado de `output/pdfs/` — o mesmo que
+  será anexado. As imagens ao lado mostram o conteúdo; só o PDF prova o que o
+  SAPL vai receber.
+- **Esta é continuação da anterior — juntar ↑** é a saída para quando a máquina
+  partiu uma indicação em duas (uma folha de anexo lida como começo, um
+  cabeçalho destruído no meio). As páginas passam para a indicação de cima e
+  viram um PDF só. Fica gravado em `config/juncoes.json` e vale para sempre —
+  não precisa refazer a cada rodada. Vale a partir do processamento seguinte.
+
 **3. Enviar ao SAPL** — abre o Firefox com o formulário preenchido: número,
 ano, ementa, autor, data de apresentação e o PDF anexado, tudo pelo programa.
 A partir daí, dois botões:

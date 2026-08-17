@@ -55,6 +55,8 @@ from .detect import (
     marcar_suspeitos,
     montar_blocos,
 )
+from .juncoes import JUNCOES
+from .juncoes import aplicar as aplicar_juncoes
 from .progresso import Progresso
 from .revisao import (
     CORRECOES,
@@ -351,6 +353,14 @@ def _extrair_um_pdf(
     print(f"  {len(paginas)} paginas")
 
     inicios, citacoes = classificar_paginas(paginas)
+    # As juncoes que voce fez a mao entram AQUI, antes de qualquer conta sobre
+    # a sequencia: um bloco que nao devia existir nao pode virar ancora nem
+    # buraco no calculo do passo.
+    antes = len(inicios)
+    inicios = aplicar_juncoes(inicios, Path(caminho_pdf).name)
+    if len(inicios) != antes:
+        print(f"  {antes - len(inicios)} bloco(s) juntados ao anterior "
+              f"(marcados por voce em {JUNCOES.name})")
     # Ordem obrigatoria: marcar os suspeitos ANTES de deduzir, senao um numero
     # lido errado vira ancora e estraga a deducao das vizinhas.
     inicios = inferir_numeros(marcar_suspeitos(inicios), ano)
@@ -884,6 +894,7 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
             "numero": ind.numero_lido or ind.numero,
             "ano": ind.ano,
             "paginas": f"{ind.pagina_inicial}-{ind.pagina_final}",
+            "arquivo": Path(ind.arquivo_origem).name,
             "NUMERO_MANUAL": ja.get("numero", ""),
             "DATA_MANUAL": ja.get("data", ""),
             "data_lida_pela_maquina": (

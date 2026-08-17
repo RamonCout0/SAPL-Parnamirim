@@ -64,6 +64,10 @@ CABECALHO_GLOSSARIO = [
     "numero",
     "ano",
     "paginas",
+    # De qual PDF de entrada este bloco saiu. Nao e enfeite: e o que permite a
+    # tela de conferencia mandar juntar este bloco com o anterior, porque a
+    # juncao e gravada por (arquivo, pagina inicial) - ver src/juncoes.py.
+    "arquivo",
     "NUMERO_MANUAL",
     "DATA_MANUAL",
     "EMENTA_MANUAL",
