@@ -161,6 +161,18 @@ Dois botões dessa tela existem para conferir o que vai de fato para o SAPL:
   cabeçalho destruído no meio). As páginas passam para a indicação de cima e
   viram um PDF só. Fica gravado em `config/juncoes.json` e vale para sempre —
   não precisa refazer a cada rodada. Vale a partir do processamento seguinte.
+- **Aqui começa outra indicação — separar ↓** é o contrário, para quando a
+  máquina *grudou* duas indicações numa só. Você escolhe em que página a
+  segunda começa (o número da página está escrito acima de cada imagem) e
+  digita o número dela, lido no papel. O bloco vira dois, cada um com o seu
+  PDF. Também fica gravado em `config/juncoes.json`, também vale a partir do
+  processamento seguinte.
+
+  Esse é o erro mais perigoso do fatiamento, e por isso tem botão próprio: a
+  indicação engolida **não existe em lugar nenhum**. Ela não dá erro, não entra
+  na fila, não aparece na revisão — simplesmente não chega a ser criada. E o
+  PDF que sobe para o SAPL como sendo a de cima leva dentro o documento da
+  outra. Aconteceu com a **610 e a 609**.
 
 **3. Enviar ao SAPL** — abre o Firefox com o formulário preenchido: número,
 ano, ementa, autor, data de apresentação e o PDF anexado, tudo pelo programa.
@@ -473,6 +485,20 @@ Três armadilhas reais do documento, todas tratadas:
    os vizinhos. (Antes disso, o "9" tinha ementa e autor bons e foi
    classificado como **pronto** — iria para o SAPL como *Indicação 9/2021*.
    E ainda fez a indicação seguinte ser deduzida como "10" em vez de 1630.)
+6. **Bloco que engoliu o seguinte.** Quando os *dois* sinais falham na mesma
+   página — cabeçalho ilegível e fórmula de abertura não reconhecida — nenhum
+   bloco é aberto ali e as páginas de duas indicações viram uma só. Foi o caso
+   da **610 com a 609**. É o único erro daqui que não reclama sozinho: a
+   engolida não é criada, então nada a cobra, e o PDF anexado no SAPL contém um
+   documento que não é o da matéria.
+
+   O sinal que denuncia tem duas metades, e as duas são necessárias: a
+   sequência pula (610 → 608, a 609 não está em bloco nenhum) **e** o bloco
+   está com o dobro do tamanho normal daquele lote. Só o pulo não serve —
+   buraco de verdade existe (indicação que não foi escaneada) e deixa o bloco
+   do tamanho de sempre. Só o tamanho também não — anexo fotográfico engorda
+   bloco sem esconder nada. Batendo as duas, o bloco vai para a conferência
+   dizendo qual indicação sumiu, e lá você separa (veja o botão *separar ↓*).
 
 ## Página sem OCR nenhum
 
@@ -515,6 +541,8 @@ Tudo tem de valer:
 - autor resolvido por alias, rapidfuzz ≥ 88 ou primeiro nome único
 - número lido do papel (não deduzido) **e coerente com a sequência do lote**
 - bloco com 2 páginas ou mais
+- bloco sem suspeita de ter engolido a indicação seguinte (páginas demais logo
+  antes de um buraco na sequência)
 
 Ementa que **você** transcreveu não passa pelo critério de tamanho nem pelo de
 confiança: o critério existe para desconfiar do OCR, e ali não há OCR. Sem
@@ -541,6 +569,7 @@ config/
   sapl_form.json           seletores dos campos do formulário
   aliases_aprendidos.json  nomes civis que você confirmou (cresce com o uso)
   correcoes.json           ementa/autor/"já conferi" que você corrigiu — permanente
+  juncoes.json             fronteiras de bloco que você corrigiu (juntar/separar)
 src/
   textlayer.py   PDF -> texto por página, limpando timbre e carimbo
   ocr.py         OCR de reserva (Tesseract) para página sem texto embutido
@@ -550,6 +579,7 @@ src/
   autores.py     nome do papel -> id do SAPL
   ollama_client.py
   revisao.py     PNG das páginas duvidosas + glossário
+  juncoes.py     as fronteiras de bloco que você corrigiu a mão (juntar/cortar)
   pipeline.py    orquestra tudo
 src/
   datas.py       acha a página do carimbo "Lido na Sessão" (a data é manuscrita)
@@ -566,6 +596,8 @@ scripts/
 tests/
   test_detect.py        leitura do número no cabeçalho (inclusive "1.405/2022")
   test_ciclo_revisao.py a correção manual sobrevive às rodadas seguintes
+  test_cartao_resumo.py cartão-resumo, juntar/separar blocos, bloco que engoliu
+                        o seguinte
 ```
 
 ## Testes

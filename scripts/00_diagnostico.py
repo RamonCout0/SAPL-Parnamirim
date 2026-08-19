@@ -22,6 +22,7 @@ from src.detect import (
     inferir_numeros,
     montar_blocos,
 )
+from src.juncoes import aplicar as aplicar_juncoes
 from src.textlayer import extrair_paginas, pagina_para_markdown
 
 
@@ -58,6 +59,10 @@ def main() -> int:
     print(f"Markdown completo -> {md}")
 
     inicios, citacoes = classificar_paginas(paginas)
+    # As fronteiras que voce corrigiu a mao valem aqui tambem. Sem isto o
+    # diagnostico continuaria mostrando o bloco torto que voce ja consertou -
+    # e voce iria consertar de novo, achando que a marcacao nao pegou.
+    inicios = aplicar_juncoes(inicios, pdf.name)
     inicios = inferir_numeros(inicios, ano)
     blocos = auditar(montar_blocos(inicios, len(paginas), ano))
 

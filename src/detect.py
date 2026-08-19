@@ -136,6 +136,12 @@ TOLERANCIA_SEQUENCIA = 20
 # bom encostado num numero ruim era acusado junto com ele.
 VIZINHOS_CONSIDERADOS = 2
 
+# Quantas indicacoes um bloco pode ter engolido para a suspeita ainda valer
+# (ver auditar). Acima disso o que houve foi outra coisa - uma virada de
+# sequencia (o lote de 2021 vai ...792, 793, 601, 602...) ou um pedaco do lote
+# que nao foi escaneado. Nenhuma das duas se resolve cortando o bloco.
+MAX_ENGOLIDAS = 2
+
 
 @dataclass
 class Inicio:
@@ -150,6 +156,10 @@ class Inicio:
     # O numero foi lido, mas nao conversa com nenhum vizinho da sequencia -
     # quase sempre OCR destruido no cabecalho. Ver marcar_suspeitos.
     numero_suspeito: bool = False
+    # Este inicio nao foi achado pela maquina: voce marcou na tela que a
+    # indicacao comeca aqui (src/juncoes.py). Fica registrado porque quem
+    # conferir depois precisa saber que a fronteira e humana, nao lida.
+    corte_manual: bool = False
     # Em que pagina o numero foi lido, quando NAO foi no cabecalho da primeira
     # pagina e sim no cartao-resumo do fim do bloco. 0 = veio do cabecalho.
     # Fica registrado porque e um caminho menos obvio: quem conferir depois
@@ -166,6 +176,10 @@ class Bloco:
     numero_inferido: bool = False
     numero_suspeito: bool = False
     numero_do_cartao: int = 0
+    corte_manual: bool = False
+    # Numeros que somem entre este bloco e o proximo, quando ha sinal de que
+    # eles estao DENTRO deste bloco. Ver auditar. Vazio na maioria esmagadora.
+    engoliu: list[int] = field(default_factory=list)
     avisos: list[str] = field(default_factory=list)
 
     @property
@@ -473,6 +487,11 @@ def montar_blocos(
                 f"numero lido no cartao-resumo da pagina {ini.numero_do_cartao} "
                 "(o cabecalho da primeira pagina saiu ilegivel)"
             )
+        if ini.corte_manual:
+            avisos.append(
+                "inicio marcado por voce na tela de conferencia (a maquina nao "
+                "viu cabecalho nesta pagina)"
+            )
 
         blocos.append(
             Bloco(
@@ -483,6 +502,7 @@ def montar_blocos(
                 numero_inferido=ini.numero_inferido,
                 numero_suspeito=ini.numero_suspeito,
                 numero_do_cartao=ini.numero_do_cartao,
+                corte_manual=ini.corte_manual,
                 avisos=avisos,
             )
         )
@@ -491,6 +511,11 @@ def montar_blocos(
 
 def auditar(blocos: list[Bloco]) -> list[Bloco]:
     """Marca o que precisa de olho humano antes de subir pro SAPL."""
+    # Tamanho normal de bloco NESTE lote - a base da suspeita de bloco duplo,
+    # logo abaixo. Mediana e nao media: um bloco gigante (o proprio que engoliu
+    # outro) nao pode subir a referencia e se absolver sozinho.
+    tipico = statistics.median([b.qtd_paginas for b in blocos]) if blocos else 0
+
     vistos: dict[int, int] = {}
     for i, b in enumerate(blocos):
         if b.numero in vistos:
@@ -506,6 +531,34 @@ def auditar(blocos: list[Bloco]) -> list[Bloco]:
             passo = blocos[i + 1].numero - b.numero
             if passo not in (1, -1):
                 b.avisos.append(f"sequencia salta para {blocos[i+1].numero}")
+
+            # Bloco que ENGOLIU a indicacao seguinte: a maquina nao achou o
+            # inicio dela (cabecalho destruido pelo OCR) e as paginas das duas
+            # viraram um bloco so. E o pior erro de fronteira que existe aqui,
+            # porque nao reclama em lugar nenhum: a indicacao engolida nao
+            # chega a ser criada, entao nada a cobra, e o PDF que sobe para o
+            # SAPL leva dentro um documento que nao e o da materia. Caso real:
+            # a 610 e a 609.
+            #
+            # A assinatura tem DUAS metades, e as duas sao necessarias:
+            #   - a sequencia pula (610 -> 608: a 609 nao esta em bloco nenhum);
+            #   - o bloco esta com o dobro do tamanho normal do lote, porque
+            #     leva as duas indicacoes dentro.
+            # So o pulo nao serve: buraco de verdade existe (indicacao que nao
+            # foi escaneada) e deixa o bloco do tamanho de sempre - acusar todo
+            # pulo mandaria para a conferencia dezenas de blocos corretos. So o
+            # tamanho tambem nao: anexo fotografico engorda bloco sem esconder
+            # nada, e por isso ja tem o aviso proprio acima.
+            if 1 < abs(passo) <= MAX_ENGOLIDAS + 1 and b.qtd_paginas >= 2 * tipico:
+                sentido = 1 if passo > 0 else -1
+                b.engoliu = list(
+                    range(b.numero + sentido, blocos[i + 1].numero, sentido)
+                )
+                b.avisos.append(
+                    f"{b.qtd_paginas} paginas e a indicacao "
+                    + ", ".join(map(str, b.engoliu))
+                    + " nao aparece em bloco nenhum - pode estar dentro deste"
+                )
 
     numeros = [b.numero for b in blocos]
     if numeros:
