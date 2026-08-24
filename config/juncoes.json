@@ -1,5 +1,13 @@
 {
- "_doc": "Blocos marcados como continuacao do bloco anterior, por arquivo de origem. A chave e o nome do PDF de entrada; a lista traz as paginas em que aquele bloco comecava. Na proxima rodada o pipeline nao abre bloco nessas paginas - elas passam a fazer parte da indicacao de cima.",
+ "_doc": "Fronteiras de bloco corrigidas a mao, por arquivo de origem. A chave e o nome do PDF de entrada. Em 'juncoes', as paginas que NAO abrem indicacao nova - elas passam a fazer parte da indicacao de cima. Em 'cortes', o contrario: paginas que ABREM indicacao mesmo sem a maquina ter visto cabecalho nenhum, cada uma com o numero que voce leu no papel. Vale a partir da proxima rodada do pipeline.",
+ "cortes": {
+  "TODAS_INDICAÇÕES_ATUALIZADAS_frenteverso_700_A_601@2023.pdf": [
+   {
+    "numero": 609,
+    "pagina": 216
+   }
+  ]
+ },
  "juncoes": {
   "TODAS_INDICAÇÕES_ATUALIZADAS_frenteverso_500_A_401@2023.pdf": [
    30

@@ -431,6 +431,40 @@ def _ainda_no_formulario(pagina, form: dict) -> bool:
     return achar(pagina, form["campos"]["ementa"]) is not None
 
 
+def _vigiar_navegacao(pagina):
+    """Anota o status HTTP da ultima navegacao do documento principal.
+
+    Existe porque a confirmacao de salvamento era feita SO por eliminacao -
+    "nao e o login e nao e o formulario, logo deu certo". Uma pagina de erro
+    passa nos dois testes: nao tem campo de ementa e nao tem "login" na URL.
+    O caso real foi um 404 cru do nginx (a pagina branca com "nginx/1.22.1"),
+    que virava "cadastrada" e tirava a indicacao da fila para sempre.
+
+    Olhar o status e a unica leitura que nao depende do layout de nenhuma
+    Camara: 2xx/3xx e resposta, 4xx/5xx nao e.
+
+    Devolve (estado, ouvinte). O ouvinte precisa ser removido depois - por
+    isso ele volta junto, em vez de ficar pendurado na pagina para sempre.
+    """
+    estado = {"status": 0, "url": ""}
+
+    def anotar(resposta):
+        try:
+            pedido = resposta.request
+            # So o documento principal. Sem este filtro, um icone que faltou
+            # no tema do SAPL derrubaria o cadastro inteiro.
+            if pedido.is_navigation_request() and pedido.frame == pagina.main_frame:
+                estado["status"] = resposta.status
+                estado["url"] = resposta.url
+        except Exception:
+            # Frame ja solto, contexto destruido no meio da navegacao: nao ha
+            # o que anotar, e um vigia nao pode derrubar o que ele vigia.
+            pass
+
+    pagina.on("response", anotar)
+    return estado, anotar
+
+
 def salvar(pagina, form: dict, espera_ms: int = 120000) -> tuple[bool, str, str]:
     """Clica em Salvar e SO devolve sucesso se confirmar que a materia entrou.
 
@@ -453,6 +487,24 @@ def salvar(pagina, form: dict, espera_ms: int = 120000) -> tuple[bool, str, str]
                        "'botao_salvar' em config\\sapl_form.json"), ""
 
     marcado = _marcar_documento(pagina)
+    estado_http, ouvinte = _vigiar_navegacao(pagina)
+    try:
+        return _clicar_e_conferir(
+            pagina, form, espera_ms, alvo, url_antes, marcado, estado_http)
+    finally:
+        # O ouvinte fica pendurado na PAGINA, nao nesta chamada: sem tirar,
+        # cada indicacao do lote deixaria mais um la, todos anotando no estado
+        # de uma chamada que ja terminou.
+        try:
+            pagina.remove_listener("response", ouvinte)
+        except Exception:
+            pass
+
+
+def _clicar_e_conferir(pagina, form: dict, espera_ms: int, alvo, url_antes: str,
+                       marcado: bool, estado_http: dict) -> tuple[bool, str, str]:
+    """O corpo de `salvar`, separado so para o ouvinte de navegacao ter um
+    `finally` que sempre roda - a funcao tem saida por todo lado."""
     try:
         alvo.scroll_into_view_if_needed(timeout=5000)
     except Exception:
@@ -511,6 +563,22 @@ def salvar(pagina, form: dict, espera_ms: int = 120000) -> tuple[bool, str, str]
     if "login" in url.lower():
         return False, ("a sessão do SAPL caiu e ele pediu login de novo — "
                        "entre na janela do Firefox e mande de novo"), ""
+
+    # O servidor respondeu com erro. Antes disto o teste era so por eliminacao
+    # ("nao e o login, nao e o formulario, logo entrou") e QUALQUER pagina de
+    # erro passava como cadastro feito - inclusive o 404 cru do nginx, aquela
+    # pagina branca com "nginx/1.22.1" embaixo. A indicacao ia para o registro
+    # de enviados sem nunca ter entrado no SAPL, e nao voltava mais para a
+    # fila: some do acervo e ninguem descobre.
+    #
+    # O status e a unica leitura que nao depende do tema de nenhuma Camara.
+    # Status 0 quer dizer que nao deu para observar (navegacao por cache, aba
+    # trocada) - ai o criterio antigo continua valendo, sem inventar recusa.
+    if estado_http["status"] >= 400:
+        return False, (
+            f"o SAPL respondeu {estado_http['status']} ao salvar — a página que "
+            "está na janela do Firefox é de erro, não a matéria cadastrada. "
+            "Confira lá se ela entrou antes de mandar de novo"), ""
 
     if _ainda_no_formulario(pagina, form):
         erros = erros_da_pagina(pagina, form)

@@ -14,7 +14,7 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 
 from src.config import PDFS_DIR, carregar_ids
-from src.juncoes import juntar
+from src.juncoes import cortar, juntar
 from src.pipeline import GLOSSARIO, REVISAO_DIR
 from src.revisao import (
     ROTULO_DE,
@@ -37,6 +37,27 @@ SELECIONE = "— selecione o vereador —"
 # quando VOCE marca isto aqui - ver sem_autor em src/pipeline.py.
 SEM_AUTOR = "— esta indicação não tem autor individual —"
 ZOOM_MIN, ZOOM_MAX, ZOOM_PASSO = 0.3, 3.0, 0.15
+
+# Altura reservada para o rotulo "pagina N" acima de cada imagem empilhada.
+# Fica numa constante porque duas contas dependem dela: a que desenha a pilha
+# e a que rola ate o carimbo do verso.
+ROTULO_PAGINA = 22
+
+
+def _pagina_do_png(nome: str) -> str:
+    """A pagina que o PNG mostra, tirada do proprio nome ("465-2023_pg077.png"
+    -> "77").
+
+    Do nome e nao da posicao na lista: um PNG que faltou na pasta faz a
+    contagem por posicao errar todas as seguintes, e esse numero e o que a
+    pessoa digita ao separar um bloco em dois - errado ali, o corte cai na
+    pagina errada e parte a indicacao no meio.
+    """
+    partes = nome.rsplit("_pg", 1)
+    if len(partes) != 2:
+        return "?"
+    digitos = partes[1].split(".")[0]
+    return str(int(digitos)) if digitos.isdigit() else "?"
 
 
 class TelaRevisao(ttk.Frame):
@@ -225,6 +246,23 @@ class TelaRevisao(ttk.Frame):
                  "páginas passam para a indicação de cima e viram um PDF só."))
         self.ajuda_juntar.pack(anchor="w", fill="x", pady=(visual.px(2), 0))
 
+        # O erro oposto, e o mais grave: a maquina NAO viu que uma indicacao
+        # nova comecava no meio do bloco, entao duas viraram uma so. A de baixo
+        # nao existe em lugar nenhum - nem no PDF, nem na fila do SAPL.
+        # Ver src/juncoes.py.
+        self.botao_separar = ttk.Button(
+            caixa, text="Aqui começa outra indicação — separar ↓",
+            command=self.separar_em_duas)
+        self.botao_separar.pack(anchor="w", fill="x", pady=(visual.px(8), 0))
+        self.ajuda_separar = visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left",
+            text="Use quando estas páginas contiverem DUAS indicações — o "
+                 "cabeçalho da segunda saiu ilegível e ela foi engolida por "
+                 "esta. Role as imagens, veja em que página a outra começa e "
+                 "informe o número dela. O bloco vira dois, cada um com o seu "
+                 "PDF."))
+        self.ajuda_separar.pack(anchor="w", fill="x", pady=(visual.px(2), 0))
+
         self.rodape = visual.fluido(ttk.Label(
             caixa, style="Ajuda.TLabel", justify="left", text=""))
         self.rodape.pack(anchor="w", fill="x", pady=(visual.px(12), 0))
@@ -405,6 +443,15 @@ class TelaRevisao(ttk.Frame):
                     foto = ImageTk.PhotoImage(reduzida)
             except (OSError, ValueError):
                 continue
+            # O numero da pagina, escrito acima da imagem. Nao e enfeite: e a
+            # resposta para "em que pagina comeca a outra indicacao" na hora de
+            # separar um bloco em dois. Sem ele so restava contar as imagens de
+            # cima para baixo e torcer para nao ter pulado nenhuma.
+            self.tela.create_text(
+                visual.px(2), y, anchor="nw", font=visual.FONTE_BOTAO,
+                fill=visual.CINZA_TEXTO, text=f"página {_pagina_do_png(nome)}")
+            y += visual.px(ROTULO_PAGINA)
+
             self._fotos.append(foto)          # sem isto a imagem some da tela
             self.tela.create_image(0, y, anchor="nw", image=foto)
             y += foto.height() + 10
@@ -454,9 +501,11 @@ class TelaRevisao(ttk.Frame):
         carimbo "Lido na Sessão" com a data escrita a mao."""
         if len(self._fotos) < 2:
             return
-        altura_total = sum(f.height() + 10 for f in self._fotos)
+        rotulo = visual.px(ROTULO_PAGINA)
+        altura_total = sum(f.height() + 10 + rotulo for f in self._fotos)
         if altura_total:
-            self.tela.yview_moveto((self._fotos[0].height() + 10) / altura_total)
+            self.tela.yview_moveto(
+                (self._fotos[0].height() + 10 + rotulo) / altura_total)
 
     def abrir_pdf(self) -> None:
         """Abre o PDF fatiado desta indicacao - o que vai ser anexado."""
@@ -514,6 +563,163 @@ class TelaRevisao(ttk.Frame):
             "novo.\n\nProcessar agora?",
         ):
             self.app.processar_de_novo()
+
+    @staticmethod
+    def _faixa_de_paginas(linha: dict) -> tuple[int, int] | None:
+        """(primeira, ultima) pagina do bloco, lidas da coluna "paginas".
+
+        Um bloco de uma pagina so vem escrito "12", sem o traco - por isso a
+        ultima cai de volta na primeira em vez de dar erro.
+        """
+        partes = [p.strip() for p in (linha.get("paginas") or "").split("-")]
+        if not partes or not partes[0].isdigit():
+            return None
+        primeira = int(partes[0])
+        ultima = int(partes[1]) if len(partes) > 1 and partes[1].isdigit() else primeira
+        return primeira, ultima
+
+    def separar_em_duas(self) -> None:
+        """Marca que uma indicacao nova comeca no meio deste bloco.
+
+        O caminho e o mesmo do juntar, e pelo mesmo motivo: quem monta os
+        blocos e fatia os PDFs e o pipeline, entao a marcacao e gravada agora e
+        vale na proxima rodada - por isso a tela oferece reprocessar em seguida.
+        """
+        linha = self.atual
+        if not linha:
+            return
+        arquivo = (linha.get("arquivo") or "").strip()
+        faixa = self._faixa_de_paginas(linha)
+        if not arquivo or not faixa:
+            messagebox.showinfo(
+                "Falta a origem desta indicação",
+                "Esta linha do glossário é de uma versão anterior do programa "
+                "e não diz de qual PDF ela veio.\n\nProcesse o lote de novo na "
+                "primeira aba e o botão passa a funcionar.")
+            return
+
+        primeira, ultima = faixa
+        if ultima <= primeira:
+            messagebox.showinfo(
+                "Só há uma página",
+                "Este bloco tem uma página só — não há onde separar.\n\nSe "
+                "está faltando uma indicação no lote, ela foi engolida por "
+                "outro bloco: procure o que estiver com páginas demais.")
+            return
+
+        escolha = self._pedir_corte(primeira, ultima)
+        if not escolha:
+            return
+        pagina, numero = escolha
+
+        if not messagebox.askyesno(
+            "Separar em duas",
+            f"A partir da página {pagina} começa a indicação {numero}.\n\n"
+            f"As páginas {pagina} a {ultima} saem desta indicação e viram um "
+            f"cadastro próprio, com PDF próprio. Esta aqui fica com as "
+            f"páginas {primeira} a {pagina - 1}.\n\n"
+            "Vale a partir do próximo processamento, e fica gravado — não "
+            "precisa refazer nas próximas vezes.\n\nSeparar?",
+        ):
+            return
+
+        cortar(arquivo, pagina, numero)
+        if messagebox.askyesno(
+            "Separado",
+            "Marcado. Para o bloco virar dois de verdade — e os dois PDFs "
+            "serem refeitos — o lote precisa ser processado de novo.\n\n"
+            "Processar agora?",
+        ):
+            self.app.processar_de_novo()
+
+    def _pedir_corte(self, primeira: int, ultima: int) -> tuple[int, int] | None:
+        """Pergunta onde a outra indicacao comeca e qual e o numero dela.
+
+        O numero e obrigatorio. Sem ele o bloco novo dependeria da deducao pela
+        sequencia, e deducao que nao fecha faz o bloco ser DESCARTADO: as
+        paginas sumiriam do lote justamente na operacao feita para nao
+        perde-las (ver src/juncoes.py). Aqui nao ha o que deduzir - a imagem da
+        pagina esta na tela, ao lado.
+        """
+        p = visual.px
+        janela = tk.Toplevel(self)
+        janela.title("Separar em duas indicações")
+        janela.transient(self.winfo_toplevel())
+        janela.resizable(False, False)
+        corpo = ttk.Frame(janela, padding=p(16))
+        corpo.pack(fill="both", expand=True)
+
+        ttk.Label(corpo, style="Titulo.TLabel",
+                  text="Em que página começa a outra indicação?").pack(anchor="w")
+        # wraplength fixo (e nao visual.fluido) porque a janela nao e
+        # redimensionavel: quem manda na largura aqui e este texto.
+        ttk.Label(corpo, style="Ajuda.TLabel", justify="left", wraplength=p(430),
+                  text=f"Este bloco vai da página {primeira} à {ultima} do "
+                       f"arquivo original — são os números escritos acima de "
+                       f"cada imagem, ao lado. Escolha a PRIMEIRA página da "
+                       f"indicação de baixo."
+                  ).pack(anchor="w", fill="x", pady=(p(4), p(10)))
+
+        var_pagina = tk.StringVar(value=str(primeira + 1))
+        tk.Spinbox(corpo, from_=primeira + 1, to=ultima, textvariable=var_pagina,
+                   width=6, font=visual.FONTE_GRANDE, justify="center",
+                   state="readonly").pack(anchor="w")
+
+        ttk.Label(corpo, style="Titulo.TLabel", text="Número dessa indicação"
+                  ).pack(anchor="w", pady=(p(14), p(2)))
+        ttk.Label(corpo, style="Ajuda.TLabel", justify="left", wraplength=p(430),
+                  text="Leia no papel, na imagem. Só os algarismos — o 1.405 "
+                       "do papel se escreve 1405 aqui. É obrigatório: o "
+                       "programa não pode adivinhar o número de um cabeçalho "
+                       "que ele não conseguiu ler."
+                  ).pack(anchor="w", fill="x")
+
+        var_numero = tk.StringVar()
+        campo = tk.Entry(corpo, textvariable=var_numero, width=8,
+                         font=visual.FONTE_GRANDE, justify="center")
+        campo.pack(anchor="w", pady=(p(6), 0))
+
+        erro = tk.Label(corpo, text="", bg=visual.VERMELHO_FUNDO,
+                        fg=visual.VERMELHO, font=visual.FONTE, anchor="w",
+                        justify="left", padx=p(8), pady=p(6))
+
+        resposta: dict = {}
+
+        def confirmar(*_evento) -> None:
+            numero = var_numero.get().strip()
+            if not numero.isdigit() or int(numero) <= 0:
+                erro.configure(
+                    text="Digite o número da indicação — só algarismos.")
+                erro.pack(fill="x", pady=(p(10), 0))
+                campo.focus_set()
+                return
+            resposta["pagina"] = int(var_pagina.get())
+            resposta["numero"] = int(numero)
+            janela.destroy()
+
+        botoes = ttk.Frame(corpo)
+        botoes.pack(fill="x", pady=(p(16), 0))
+        ttk.Button(botoes, text="Separar", style="Principal.TButton",
+                   command=confirmar).pack(side="left")
+        ttk.Button(botoes, text="Cancelar",
+                   command=janela.destroy).pack(side="left", padx=p(8))
+
+        campo.focus_set()
+        janela.bind("<Return>", confirmar)
+        janela.bind("<Escape>", lambda _e: janela.destroy())
+        # A trava modal so pega com a janela ja desenhada - antes disso o Tk
+        # recusa com "grab failed: window not viewable". Sem o try, essa recusa
+        # derrubaria a janela inteira por causa do enfeite; sem a trava, a
+        # janela continua funcionando, so nao bloqueia o resto da tela.
+        janela.update_idletasks()
+        try:
+            janela.grab_set()
+        except tk.TclError:
+            pass
+        self.wait_window(janela)
+        if not resposta:
+            return None
+        return resposta["pagina"], resposta["numero"]
 
     def abrir_imagem(self) -> None:
         linha = self.atual

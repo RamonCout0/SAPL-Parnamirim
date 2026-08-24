@@ -90,6 +90,26 @@ class Elemento:
     ao_clicar = None
 
 
+class RespostaFalsa:
+    """A resposta de rede, na fatia que sapl._vigiar_navegacao le.
+
+    No Playwright o status esta na Response e o "isto e navegacao?" esta na
+    Request pendurada nela - por isso as duas.
+    """
+
+    class _Pedido:
+        def __init__(self, frame):
+            self.frame = frame
+
+        def is_navigation_request(self) -> bool:
+            return True
+
+    def __init__(self, status: int, url: str, frame):
+        self.status = status
+        self.url = url
+        self.request = self._Pedido(frame)
+
+
 class PaginaFalsa:
     """Uma pagina do SAPL sem SAPL nenhum.
 
@@ -106,6 +126,10 @@ class PaginaFalsa:
         self.fechada = False
         self.esperas = 0
         self.marcado = False
+        # So precisa ser comparavel por identidade: e assim que src/sapl.py
+        # separa a navegacao do documento principal da de um iframe.
+        self.main_frame = object()
+        self.ouvintes: list = []
 
         botao = elementos.get("#submit-id-salvar")
         if botao is not None:
@@ -115,10 +139,27 @@ class PaginaFalsa:
         if self.depois_do_clique:
             self.depois_do_clique(self)
 
-    def trocar_documento(self) -> None:
+    def trocar_documento(self, status: int = 200) -> None:
         """O navegador carregou outra pagina: o window de antes morreu, e com
-        ele o carimbo que src/sapl.py deixou la."""
+        ele o carimbo que src/sapl.py deixou la.
+
+        Toda navegacao de verdade traz um status HTTP junto, entao ele sai
+        daqui tambem - inclusive quando a pagina nova e de erro.
+        """
         self.marcado = False
+        self.responder_http(status)
+
+    def responder_http(self, status: int) -> None:
+        for ouvinte in list(self.ouvintes):
+            ouvinte(RespostaFalsa(status, self.url, self.main_frame))
+
+    def on(self, evento: str, funcao) -> None:
+        if evento == "response":
+            self.ouvintes.append(funcao)
+
+    def remove_listener(self, evento: str, funcao) -> None:
+        if evento == "response" and funcao in self.ouvintes:
+            self.ouvintes.remove(funcao)
 
     # --- a fatia da API do Playwright que src/sapl.py realmente usa ---
     def locator(self, seletor: str) -> Elemento:
@@ -346,6 +387,72 @@ class TestSalvar(unittest.TestCase):
             depois_do_clique=responder), FORM, espera_ms=3000)
         self.assertFalse(salvou)
         self.assertIn("sessão", recado)
+
+    def test_pagina_de_erro_do_servidor_nao_vira_sucesso(self):
+        """O caso real: depois do clique a janela do Firefox mostrava o 404 CRU
+        DO NGINX - aquela pagina branca com "nginx/1.22.1" embaixo.
+
+        Ela passava nos dois testes que existiam: nao tem campo de ementa
+        (logo, "saiu do formulario") e nao tem "login" na URL (logo, "a sessao
+        esta viva"). Resultado: o programa dizia "cadastrada", gravava a
+        indicacao no registro de enviados e nunca mais a mostrava - enquanto a
+        materia nao existia no SAPL. E o unico erro daqui que ninguem descobre,
+        porque a indicacao some da fila justamente por ter "dado certo".
+        """
+        def responder(pagina):
+            pagina.url = "https://sapl.parnamirim.rn.leg.br/media/sapl/public/x.pdf"
+            pagina.elementos = {}
+            pagina.trocar_documento(status=404)
+
+        salvou, recado, url = sapl.salvar(pagina_do_formulario(
+            depois_do_clique=responder), FORM, espera_ms=3000)
+        self.assertFalse(salvou)
+        self.assertIn("404", recado)
+        self.assertEqual(url, "")
+
+    def test_erro_de_servidor_tambem_nao_vira_sucesso(self):
+        """500 na cara do salvamento e o mesmo estrago que o 404."""
+        def responder(pagina):
+            pagina.url = "https://sapl.parnamirim.rn.leg.br/materia/create"
+            pagina.elementos = {}
+            pagina.trocar_documento(status=500)
+
+        salvou, recado, _ = sapl.salvar(pagina_do_formulario(
+            depois_do_clique=responder), FORM, espera_ms=3000)
+        self.assertFalse(salvou)
+        self.assertIn("500", recado)
+
+    def test_status_nao_observado_nao_inventa_recusa(self):
+        """Navegacao que nao passou pela rede (cache, aba trocada) deixa o
+        status em 0. Ai vale o criterio antigo - o conserto so pode acrescentar
+        motivo para RECUSAR, nunca fazer o envio parar de funcionar."""
+        def responder(pagina):
+            pagina.url = "https://sapl.parnamirim.rn.leg.br/materia/4321"
+            pagina.elementos = {}
+            pagina.marcado = False        # troca o documento SEM status nenhum
+
+        salvou, recado, _ = sapl.salvar(pagina_do_formulario(
+            depois_do_clique=responder), FORM, espera_ms=3000)
+        self.assertTrue(salvou)
+        self.assertIn("4321", recado)
+
+    def test_o_vigia_nao_fica_pendurado_na_pagina(self):
+        """A pagina e a MESMA durante o lote inteiro (o worker so faz goto).
+        Um ouvinte por indicacao ficaria acumulando, e todos anotando no estado
+        de chamadas que ja terminaram."""
+        def responder(pagina):
+            pagina.url = "https://sapl.parnamirim.rn.leg.br/materia/4321"
+            pagina.elementos = {}
+            pagina.trocar_documento()
+
+        pagina = pagina_do_formulario(depois_do_clique=responder)
+        for _ in range(3):
+            pagina.url = FORMULARIO
+            pagina.elementos = {"#id_ementa": Elemento(),
+                                "#submit-id-salvar": Elemento()}
+            pagina.elementos["#submit-id-salvar"].ao_clicar = pagina._clicou
+            sapl.salvar(pagina, FORM, espera_ms=3000)
+        self.assertEqual(pagina.ouvintes, [])
 
     def test_pagina_que_nao_responde_nao_vira_sucesso(self):
         salvou, recado, url = sapl.salvar(

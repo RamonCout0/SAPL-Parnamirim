@@ -162,6 +162,14 @@ class Indicacao:
     sugestao_ementa_ollama: str = ""
     sugestao_autor_ollama: str = ""
 
+    # A fronteira deste bloco foi marcada por voce, nao lida pela maquina
+    # (config/juncoes.json, secao "cortes").
+    corte_manual: bool = False
+    # Indicacoes que somem entre este bloco e o proximo, quando ha sinal de que
+    # elas estao DENTRO deste bloco - o caso da 610 que engoliu a 609. Ver
+    # detect.auditar. Vira motivo de conferencia em _classificar.
+    engoliu: list[int] = field(default_factory=list)
+
     status: str = "revisao"          # "pronto" | "revisao"
     motivos: list[str] = field(default_factory=list)
     avisos_bloco: list[str] = field(default_factory=list)
@@ -359,14 +367,23 @@ def _extrair_um_pdf(
     print(f"  {len(paginas)} paginas")
 
     inicios, citacoes = classificar_paginas(paginas)
-    # As juncoes que voce fez a mao entram AQUI, antes de qualquer conta sobre
-    # a sequencia: um bloco que nao devia existir nao pode virar ancora nem
-    # buraco no calculo do passo.
-    antes = len(inicios)
+    # As fronteiras que voce corrigiu a mao entram AQUI, antes de qualquer
+    # conta sobre a sequencia: um bloco que nao devia existir nao pode virar
+    # ancora nem buraco no calculo do passo, e um que devia existir precisa
+    # estar no lugar dele antes de a deducao contar as posicoes.
+    antes = {ini.pagina for ini in inicios}
     inicios = aplicar_juncoes(inicios, Path(caminho_pdf).name)
-    if len(inicios) != antes:
-        print(f"  {antes - len(inicios)} bloco(s) juntados ao anterior "
+    depois = {ini.pagina for ini in inicios}
+    # Contadas por pagina, e nao pelo tamanho da lista: juntar e cortar podem
+    # acontecer no mesmo arquivo, e ai a diferenca de tamanho daria zero e a
+    # linha nao apareceria - some justamente no caso em que ela mais importa.
+    if antes - depois:
+        print(f"  {len(antes - depois)} bloco(s) juntados ao anterior "
               f"(marcados por voce em {JUNCOES.name})")
+    if depois - antes:
+        print(f"  {len(depois - antes)} bloco(s) abertos por corte manual, "
+              f"nas paginas {', '.join(map(str, sorted(depois - antes)))} "
+              f"({JUNCOES.name})")
     # Ordem obrigatoria: marcar os suspeitos ANTES de deduzir, senao um numero
     # lido errado vira ancora e estraga a deducao das vizinhas.
     inicios = inferir_numeros(marcar_suspeitos(inicios), ano)
@@ -386,6 +403,8 @@ def _extrair_um_pdf(
             qtd_paginas=b.qtd_paginas,
             numero_inferido=b.numero_inferido,
             numero_suspeito=b.numero_suspeito,
+            corte_manual=b.corte_manual,
+            engoliu=list(b.engoliu),
             avisos_bloco=list(b.avisos),
             arquivo_origem=caminho_pdf,
             usou_ocr=any(n in via_ocr for n in range(b.pagina_inicial, b.pagina_final + 1)),
@@ -717,6 +736,20 @@ def _classificar(ind: Indicacao) -> None:
     if ind.qtd_paginas == 1 and not ind.confirmado_manual:
         motivos.append("bloco com 1 pagina - verso ausente no scan")
 
+    # Bloco sob suspeita de ter engolido a indicacao seguinte (detect.auditar).
+    # Nao ha campo que resolva isso digitando: ou voce olha as imagens e diz
+    # "esta certo assim" (CONFIRMAR), ou marca na tela onde a outra comeca e o
+    # proximo processamento corta o bloco em dois. Sem este motivo, o bloco ia
+    # calado para o SAPL - com o PDF errado anexado e uma indicacao a menos no
+    # lote, que e o unico erro daqui que ninguem descobre depois.
+    if ind.engoliu and not ind.confirmado_manual:
+        quais = ", ".join(str(n) for n in ind.engoliu)
+        motivos.append(
+            f"bloco: {ind.qtd_paginas} paginas e a indicacao {quais} nao aparece "
+            "em lugar nenhum do lote - veja nas imagens se ela nao comeca no "
+            "meio deste bloco"
+        )
+
     ind.motivos = motivos
     # Ordem fixa (nao a de aparicao dos motivos) para a tela de revisao
     # mostrar sempre na mesma sequencia.
@@ -754,20 +787,47 @@ def _salvar_gerados(chaves: set[str]) -> None:
     )
 
 
+def _paginas_no_arquivo(caminho: Path) -> int | None:
+    """Quantas paginas tem um PDF ja fatiado. None quando nao da para saber.
+
+    Nao da para saber acontece de verdade: arquivo meio escrito por uma rodada
+    interrompida, PDF aberto no visualizador. Nesses casos o certo e nao mexer
+    - refazer por engano apagaria o arquivo que o usuario esta olhando.
+    """
+    try:
+        return len(PdfReader(str(caminho)).pages)
+    except Exception:
+        return None
+
+
 def _fatiar_pdf(
     caminho_pdf: str, indicacoes: list[Indicacao], ja_gerados: set[str], *, force: bool = False
 ) -> None:
     leitor = None  # so abre o PDF grande se realmente precisar fatiar algo
+    refeitos: list[str] = []
     barra = Progresso(len(indicacoes), prefixo=f"  {Path(caminho_pdf).name[:30]:<30} ")
     for ind in indicacoes:
         destino = PDFS_DIR / ind.nome_arquivo
+        # O PDF ja existe - mas as paginas do bloco podem ter mudado desde que
+        # ele foi gerado, e mudam exatamente quando voce corrige uma fronteira
+        # (juntar/cortar, config/juncoes.json). Sem conferir a contagem, cortar
+        # a 609 de dentro da 610 nao adiantava nada: o 610-2023.pdf continuava
+        # sendo o antigo, com as duas indicacoes dentro, porque o arquivo
+        # existia e era pulado. Documento errado em cadastro oficial, calado.
+        refazer = False
         if destino.exists():
-            ind.arquivo_pdf = str(destino)
-            barra.avancar()
-            continue
-        if not force and ind.identificador in ja_gerados:
-            # Ja foi gerado antes e nao existe mais: voce apagou de
-            # proposito depois de anexar no SAPL. Nao recriar.
+            tem = _paginas_no_arquivo(destino)
+            if tem is None or tem == ind.qtd_paginas:
+                ind.arquivo_pdf = str(destino)
+                barra.avancar()
+                continue
+            refeitos.append(f"{destino.name}: {tem} -> {ind.qtd_paginas} paginas")
+            refazer = True
+
+        # Ja foi gerado antes e nao existe mais: voce apagou de proposito
+        # depois de anexar no SAPL. Nao recriar - mas a excecao e o refazer
+        # acima, que so acontece com arquivo em maos e com a contagem errada.
+        if not refazer and not force and ind.identificador in ja_gerados:
             barra.avancar()
             continue
 
@@ -781,6 +841,11 @@ def _fatiar_pdf(
         ind.arquivo_pdf = str(destino)
         ja_gerados.add(ind.identificador)
         barra.avancar()
+
+    # Depois da barra, nunca no meio dela: a barra reescreve a propria linha
+    # com "\r" e um print no meio deixa o terminal picotado.
+    for aviso in refeitos:
+        print(f"  refeito porque o bloco mudou de tamanho - {aviso}")
 
 
 def _gravar_saidas(indicacoes: list[Indicacao], citacoes: list[dict], ids: dict) -> None:
