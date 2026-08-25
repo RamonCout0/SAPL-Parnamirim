@@ -1,4 +1,9 @@
 {
+ "brito siqueira": {
+  "confirmado_em": "809/2023",
+  "id": 23,
+  "nome": "Professor Ítalo"
+ },
  "eder rodrigues queiroz": {
   "confirmado_em": "292/2023",
   "id": 12,
@@ -19,6 +24,16 @@
   "id": 42,
   "nome": "Fativan Alves"
  },
+ "freire dos santos": {
+  "confirmado_em": "721/2023",
+  "id": 21,
+  "nome": "Rhalessa de Clênio"
+ },
+ "freitas": {
+  "confirmado_em": "719/2023",
+  "id": 44,
+  "nome": "Gustavo Negócio"
+ },
  "gabriel cesar de oliveira siqueira": {
   "confirmado_em": "265/2023",
   "id": 14,
@@ -28,6 +43,11 @@
   "confirmado_em": "398/2023",
   "id": 16,
   "nome": "Binho de Ambrósio"
+ },
+ "hiago fernandes da silva": {
+  "confirmado_em": "799/2023",
+  "id": 15,
+  "nome": "Thiago Fernandes"
  },
  "irani guedes": {
   "confirmado_em": "238/2023",

@@ -120,6 +120,127 @@ class TestNumeroNaoEDeduzido(unittest.TestCase):
         self.assertIn(1498, [c["numero"] for c in citacoes])
 
 
+# A folha real que fez a indicacao 987 desaparecer do lote 1000-901 de 2023.
+# Tudo aqui e copia do texto que o OCR devolveu, quebras de linha inclusive:
+#
+#   - "987 12023" - a barra do "987/2023" foi lida como o algarismo 1;
+#   - "subscrito na forma\nregimental" - a quebra parte o marcador ao meio;
+#   - "Casa Legislativa" comeca no caractere 270, quase encostado no limite de
+#     280 da janela, e termina depois dele.
+#
+# Os tres juntos derrubaram os DOIS sinais de deteccao na mesma pagina: ela nao
+# abriu bloco, as folhas foram parar dentro da indicacao anterior e a 987 nao
+# existiu em lugar nenhum - nem no lote, nem numa lista de erro.
+MODELO_INDICACAO_N = (
+    "INDICAÇÃO N°. {numero} 1{ano}\n"
+    "Sr. Presidente,\n"
+    "Nobres Vereadores,\n"
+    "PARNAM PRIM\n"
+    "O Vereador Lindovaildo Soares de Azevedo — VAVÁ AZEVEDO, subscrito na forma\n"
+    "regimental em vigência, no uso de suas atribuições legais, com fundamento "
+    "no Artigo 148 do\n"
+    "Regimento Interno desta Egrégia Casa Legislativa, VEM INDICAR ao Chefe do "
+    "Poder Executivo\n"
+    "Municipal (Exmo. Sr. Prefeito Rosano Taveira da Cunha), extensivo à "
+    "Secretaria Municipal de\n"
+    "Obras Públicas e Saneamento (SEMOP), a adoção de providências de modo a "
+    "realizar OBRAS DE\n"
+    "PAVIMENTAÇÃO na Rua Caminho do Sol, Bairro de Cajupiranga, neste "
+    "Município.\n"
+    "Justificativa\n"
+    "Atendendo aos anseios da população, e constatada a necessidade do "
+    "serviço, solicitamos as\n"
+    "providencias cabiveis para o atendimento do pleito ora apresentado.\n"
+)
+
+
+class TestBarraLidaComoUm(unittest.TestCase):
+    """O OCR le a barra do cabecalho como o algarismo 1 e cola no ano.
+
+    Casos reais do lote 1000-901/2023: "987 12023", "989 12023", "992 12023".
+    Sem casar o cabecalho, o numero ou saia deduzido pela sequencia ou - pior -
+    saia de um pedaco solto do texto: a 992 foi cadastrada como "18/2023".
+    """
+
+    def test_barra_virou_algarismo_um(self):
+        m = CABECALHO_RE.search("INDICAÇÃO N°. 987 12023")
+        self.assertIsNotNone(m, "o cabecalho com a barra lida como 1 tem de casar")
+        self.assertEqual(numero_do_cabecalho(m.group(1)), 987)
+        self.assertEqual(int(m.group(2)), 2023)
+
+    def test_barra_virou_um_sem_espaco_nenhum(self):
+        # "ão n° 92112023." - sai colado, e o numero certo e o mais longo.
+        m = CABECALHO_RE.search("Indicação n° 92112023")
+        self.assertIsNotNone(m)
+        self.assertEqual(numero_do_cabecalho(m.group(1)), 921)
+
+    def test_barra_virou_exclamacao(self):
+        # "INDICAÇÃO N°. 929 ! 2023". Sem casar aqui, a leitura caia numa
+        # sobra de numero mais adiante na pagina e a 929 virava "385/2023" -
+        # numero de outro lote, com correcao manual ja gravada no nome dele.
+        m = CABECALHO_RE.search("INDICAÇÃO N°. 929 ! 2023")
+        self.assertIsNotNone(m)
+        self.assertEqual(numero_do_cabecalho(m.group(1)), 929)
+
+    def test_barra_de_verdade_continua_ganhando(self):
+        # A barra existe: nada de ler "1405" como "140" + separador "5".
+        for texto, esperado in [
+            ("INDICAÇÃO n° 1.405/2022", 1405),
+            ("Indicação nº 1405/2022", 1405),
+            ("INDICAÇÃO n° 405/2022", 405),
+        ]:
+            with self.subTest(texto=texto):
+                m = CABECALHO_RE.search(texto)
+                self.assertEqual(numero_do_cabecalho(m.group(1)), esperado)
+
+
+class TestPaginaNaoDesaparece(unittest.TestCase):
+    """A regressao inteira, do jeito que ela apareceu no papel."""
+
+    def test_folha_do_modelo_indicacao_n_abre_bloco(self):
+        paginas = [
+            pagina(1, MODELO_INDICACAO_N.format(numero=988, ano=2023)),
+            pagina(2, "Mesa Diretora\nLido na Sessã\nData: ,\n1 0 Secret"),
+            pagina(3, MODELO_INDICACAO_N.format(numero=987, ano=2023)),
+            pagina(4, "Mesa, Diretora\nLido na Sess o\nData: ,\n1° sec.-tátio"),
+        ]
+        inicios, _ = classificar_paginas(paginas)
+        self.assertEqual([i.pagina for i in inicios], [1, 3],
+                         "as duas folhas de rosto tem de abrir bloco")
+        self.assertEqual([i.numero for i in inicios], [988, 987])
+        for i in inicios:
+            self.assertFalse(i.numero_inferido)
+
+        blocos = montar_blocos(inicios, len(paginas), 2023)
+        self.assertEqual([(b.numero, b.pagina_inicial, b.pagina_final)
+                          for b in blocos],
+                         [(988, 1, 2), (987, 3, 4)],
+                         "cada indicacao com as suas duas paginas")
+
+    def test_marcador_partido_pela_quebra_de_linha_ainda_conta(self):
+        # So o segundo sinal, sem numero nenhum: mesmo assim tem de abrir bloco.
+        texto = MODELO_INDICACAO_N.format(numero=987, ano=2023).replace(
+            "INDICAÇÃO N°. 987 12023\n", "")
+        inicios, _ = classificar_paginas([pagina(1, texto)])
+        self.assertEqual(len(inicios), 1,
+                         '"subscrito na forma\\nregimental" e formula de abertura')
+        self.assertTrue(inicios[0].tem_estrutura)
+
+    def test_casa_legislativa_no_corpo_continua_sem_abrir_bloco(self):
+        # O motivo de a janela ser curta: "casa legislativa" tambem aparece na
+        # justificativa, bem mais tarde. Continuacao nao pode virar inicio.
+        texto = (
+            "documento em que os moradores relatam a situacao da via, com "
+            "fotografias anexas que mostram o estado do calcamento e o "
+            "acumulo de agua parada em frente as residencias, problema que se "
+            "arrasta ha anos sem qualquer providencia do poder publico "
+            "municipal, razao pela qual pedimos que esta Casa Legislativa "
+            "de inicio ao debate.\n"
+        )
+        inicios, _ = classificar_paginas([pagina(1, texto)])
+        self.assertEqual(inicios, [])
+
+
 def inicio(pagina: int, numero: int | None, inferido: bool = False) -> Inicio:
     return Inicio(pagina=pagina, numero=numero, ano=2021, tem_cabecalho=numero is not None,
                   tem_estrutura=True, numero_inferido=inferido)
