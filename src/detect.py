@@ -48,12 +48,37 @@ from .textlayer import Pagina
 # o regex cai na segunda, mas em "1.405" a segunda sozinha pegaria so o "1".
 _NUMERO = r"\d{1,3}[.\s]\d{3}|\d{1,4}"
 
+# A barra entre o numero e o ano, como o scan devolve.
+#
+# BUG REAL, achado no lote 1000-901 de 2023: nas folhas do modelo "INDICAÇÃO
+# N°." o traco da barra sai fino no scan e o OCR le outra coisa no lugar -
+# quase sempre o algarismo 1, colado no ano ("987 12023" em vez de
+# "987/2023"), as vezes um "!" ("929 ! 2023"). No lote medido: 987, 989, 992,
+# 921, 928 com o 1, e a 929 com o "!".
+#
+# Sem casar a barra o cabecalho inteiro era ignorado, e o estrago vinha em dois
+# tamanhos:
+#
+#   - a 929 caiu na primeira coisa parecida com numero mais adiante na pagina e
+#     foi cadastrada como "385/2023" - numero de OUTRO lote, que ja tinha
+#     correcao manual gravada e que ela herdaria calada;
+#   - na 987 o segundo sinal (a formula de abertura, ver MARCADORES_INICIO)
+#     falhou na MESMA pagina, entao ela nao abriu bloco nenhum: as folhas dela
+#     ficaram dentro do bloco da 988 e a 987 desapareceu do lote sem dar erro
+#     em lugar nenhum.
+#
+# Aceitar os sosias da barra resolve na origem. O preco e a leitura ambigua de
+# um numero de dois digitos colado no ano ("112023" tanto pode ser 11/2023
+# quanto 1/12023) - caso que nao existe nestes lotes, que vao de 201 a 1000, e
+# que marcar_suspeitos acusaria de qualquer forma por destoar dos vizinhos.
+_BARRA = r"[/\-1lI|!]"
+
 # Tolerante ao OCR: "Indicação n°", "Indicaçno n°", "Indicação no", "Indicação n'".
 CABECALHO_RE = re.compile(
     r"INDICA[CÇ]"                # radical estavel
     r"[\wÇÃÁÂÀÉÊÍÓÔÕÚçãáâàéêíóôõú]{0,4}"  # ao / ão / no / cao ...
     r"\s*[Nn]?[^0-9\n]{0,10}"    # n° / nº / n' / no / n. / N.º
-    rf"({_NUMERO})\s*[/\-]\s*(\d{{4}})",
+    rf"({_NUMERO})\s*{_BARRA}\s*(\d{{4}})",
     re.IGNORECASE,
 )
 
@@ -197,9 +222,35 @@ class Bloco:
         return f"{self.pagina_inicial}-{self.pagina_final}"
 
 
+def _achatar(texto: str) -> str:
+    """Minusculas, e todo espaco em branco vira um espaco so.
+
+    BUG REAL: os marcadores sao FRASES ("subscrito na forma regimental"), e o
+    scan quebra a linha onde quiser - inclusive no meio delas. Na pagina 31 do
+    lote 1000-901 saiu "subscrito na forma\\nregimental", e o marcador "forma
+    regimental" simplesmente deixou de existir para o `in`. Achatar antes de
+    comparar tira a quebra de linha da conta.
+    """
+    return re.sub(r"\s+", " ", texto).lower()
+
+
 def _tem(texto: str, marcadores: list[str]) -> bool:
-    baixo = texto.lower()
-    return any(m in baixo for m in marcadores)
+    return any(m in _achatar(texto) for m in marcadores)
+
+
+def _tem_perto_do_topo(texto: str, marcadores: list[str], janela: int) -> bool:
+    """Como `_tem`, mas so vale se o marcador COMECAR dentro da janela.
+
+    Onde ele termina nao interessa, e e essa a diferenca que importa. Fatiar o
+    texto em `texto[:janela]` antes de procurar equivale a exigir que a frase
+    INTEIRA caiba na janela, e foi por essa fresta que a pagina 33 do lote
+    1000-901 escapou: "casa legislativa" comecava no caractere 270, dez a menos
+    que o limite de 280, mas terminava no 286 - a fatia entregava "casa
+    legisl" e o marcador nao casava por seis caracteres. Somado ao cabecalho
+    ilegivel da mesma pagina, foi o que fez a indicacao 987 sumir do lote.
+    """
+    baixo = _achatar(texto)
+    return any(0 <= baixo.find(m) < janela for m in marcadores)
 
 
 def _sem_acento(texto: str) -> str:
@@ -216,15 +267,13 @@ def _sem_acento(texto: str) -> str:
 
 def _tem_formato_de_cartao(texto: str) -> bool:
     """A pagina tem a cara do cartao-resumo (ver MARCADORES_CARTAO)?"""
-    topo = _sem_acento(texto[:JANELA_CARTAO])
-    return any(m in topo for m in MARCADORES_CARTAO)
+    return _tem_perto_do_topo(_sem_acento(texto), MARCADORES_CARTAO, JANELA_CARTAO)
 
 
 def _tem_estrutura_de_abertura(texto: str) -> bool:
     """MARCADORES_INICIO, mas so contam perto do topo da pagina - ver
     JANELA_MARCADOR_INICIO para o caso real que motivou isto."""
-    baixo = texto[:JANELA_MARCADOR_INICIO].lower()
-    return any(m in baixo for m in MARCADORES_INICIO)
+    return _tem_perto_do_topo(texto, MARCADORES_INICIO, JANELA_MARCADOR_INICIO)
 
 
 def classificar_paginas(
@@ -270,7 +319,7 @@ def classificar_paginas(
 
         estrutura = _tem_estrutura_de_abertura(p.texto)
         verso = _tem(p.texto, MARCADORES_VERSO) and p.densidade < DENSIDADE_MINIMA_INICIO
-        anexo_no_topo = any(k in p.texto[:200].lower() for k in MARCADORES_ANEXO)
+        anexo_no_topo = _tem_perto_do_topo(p.texto, MARCADORES_ANEXO, 200)
 
         # "Cartao-resumo" (ver MARCADORES_CARTAO): a folha de resumo com foto
         # que vem DEPOIS da indicacao. Ela pertence ao bloco anterior; lida
