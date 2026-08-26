@@ -106,12 +106,26 @@ class ResolvedorAutor:
         self.chaves_vistas: set[str] = set()
 
         # chave normalizada -> registro do autor
-        self.por_id = {a["id"]: a for a in ids["autores"]}
+        #
+        # `if a.get("id")` exclui os vereadores marcados `sem_cadastro_no_sapl`,
+        # que ficam todos com id 0. Sem o filtro eles colidiriam entre si nesta
+        # chave e um deles viraria "o autor de id 0" para o aprender().
+        self.por_id = {a["id"]: a for a in ids["autores"] if a.get("id")}
         self.por_texto: dict[str, dict] = {}
         for a in self.parlamentares:
             self.por_texto[_normalizar(a["nome"])] = a
             for al in a.get("aliases", []):
                 self.por_texto[_normalizar(al)] = a
+
+        # token -> ids de parlamentares em que aquele token aparece, em
+        # qualquer posicao do nome ou dos aliases. Usado para desarmar o
+        # casamento por chave de UMA palavra (ver _chave_ambigua).
+        self.donos_do_token: dict[str, set[int]] = {}
+        for a in self.parlamentares:
+            for grafia in [a["nome"], *a.get("aliases", [])]:
+                for token in _normalizar(grafia).split():
+                    if len(token) >= 3:
+                        self.donos_do_token.setdefault(token, set()).add(id(a))
 
         # primeiro nome -> parlamentares que o compartilham. Serve para o
         # atalho "primeiro nome basta", que so vale quando e unico: "Michael"
@@ -169,6 +183,53 @@ class ResolvedorAutor:
 
     # ---------------------------------------------------------------- #
 
+    def _chave_ambigua(self, chave_casada: str, consulta: str) -> bool:
+        """A semelhanca veio de um alias de UMA palavra que nao identifica?
+
+        ACIDENTE REAL, achado no lote de 2009: a indicacao 459 foi atribuida a
+        "Chicao" com escore 100 e certeza alta. A assinatura no papel era
+        "Francisco Gildasio de Figueiredo" - outra pessoa. O motivo: Chicao tem
+        o alias "Francisco", e o fuzz.token_set_ratio devolve 100 quando os
+        tokens da chave sao um SUBCONJUNTO dos da consulta. Um alias de uma
+        palavra so casa, com nota maxima, com QUALQUER nome que a contenha.
+
+        O codigo ja tratava esse risco no atalho por primeiro nome, que so
+        aceita quando o nome e unico na Camara. O caminho do rapidfuzz pulava a
+        conferencia - esta funcao a traz para ca.
+
+        Apelido proprio ("Binho", "Rhalessa", "Vava") continua valendo: ele
+        pertence a uma pessoa so e o teste de unicidade passa. Quem cai fora e
+        o primeiro nome comum ("Francisco", "Eurico", "Rosano"), que e
+        exatamente o que nao identifica ninguem sozinho.
+        """
+        tokens_chave = chave_casada.split()
+        if len(tokens_chave) != 1:
+            return False
+        if len(_normalizar(consulta).split()) < 2:
+            return False  # consulta tambem e de uma palavra: nada a desconfiar
+        return len(self.donos_do_token.get(tokens_chave[0], set())) > 1
+
+    def _sem_cadastro(self, reg: dict) -> dict:
+        """Reconheceu QUEM assinou, mas essa pessoa nao existe como Autor.
+
+        "Parlamentar" e "Autor" sao tabelas separadas no SAPL, e ha vereador
+        antigo que so existe na primeira. Sem registro de Autor ele nao aparece
+        no select do formulario, com data nenhuma - entao nao adianta procurar
+        na tela.
+
+        Este caminho existe para o programa parar de mentir. Antes, sem esses
+        nomes no catalogo, a assinatura de "Katia Carvalho de Lima" virava
+        "sem casamento seguro (melhor palpite Carol Pires, escore 84)" - o
+        nome de outra pessoa, a cinco pontos de ser aceito sozinho. Agora diz
+        de quem e a assinatura e o que falta fazer.
+        """
+        legs = ", ".join(reg.get("legislaturas", []))
+        onde = f" [{legs}]" if legs else ""
+        return self._nada(
+            f"{reg['nome']} assinou, mas nao tem cadastro de Autor no SAPL{onde}"
+            " - cadastre o Autor no SAPL e rode scripts\\sincronizar_autores.py"
+        )
+
     def resolver(self, nome: str, apelido: str = "") -> dict:
         """Retorna {id, nome, origem, escore, certeza, motivo}."""
         consultas = [q for q in (apelido, nome) if q and q.strip()]
@@ -186,10 +247,13 @@ class ResolvedorAutor:
         for q in consultas:
             reg = self.por_texto.get(_normalizar(q))
             if reg:
+                if reg.get("sem_cadastro_no_sapl"):
+                    return self._sem_cadastro(reg)
                 return self._guardar(chave, reg, "alias-exato", 100.0, "alta")
 
         # 2) semelhanca textual
         melhor_reg, melhor_escore = None, 0.0
+        melhor_chave, melhor_consulta = "", ""
         chaves = list(self.por_texto)
         for q in consultas:
             achado = process.extractOne(
@@ -198,8 +262,16 @@ class ResolvedorAutor:
             if achado and achado[1] > melhor_escore:
                 melhor_escore = achado[1]
                 melhor_reg = self.por_texto[achado[0]]
+                melhor_chave, melhor_consulta = achado[0], q
 
         if melhor_reg and melhor_escore >= LIMITE_ACEITE:
+            if self._chave_ambigua(melhor_chave, melhor_consulta):
+                return self._nada(
+                    f"semelhanca alta so por causa de '{melhor_chave}', que "
+                    f"serve para mais de um vereador - confirme quem assinou"
+                )
+            if melhor_reg.get("sem_cadastro_no_sapl"):
+                return self._sem_cadastro(melhor_reg)
             return self._guardar(
                 chave, melhor_reg, "rapidfuzz", melhor_escore, "alta"
             )
@@ -212,6 +284,8 @@ class ResolvedorAutor:
             pn = _primeiro_nome(q)
             donos = self.por_primeiro_nome.get(pn, [])
             if len(donos) == 1:
+                if donos[0].get("sem_cadastro_no_sapl"):
+                    return self._sem_cadastro(donos[0])
                 return self._guardar(
                     chave, donos[0], "primeiro-nome", melhor_escore, "alta"
                 )
@@ -245,6 +319,12 @@ class ResolvedorAutor:
                 _normalizar(q), chaves, scorer=fuzz.token_set_ratio, limit=8
             ):
                 reg = self.por_texto[chave]
+                # Quem nao tem cadastro de Autor nao pode ser oferecido como
+                # opcao: escolher esse nome no glossario gravaria autor_id 0,
+                # que e justamente "nao resolvido". O motivo da recusa ja e
+                # explicado por _sem_cadastro().
+                if reg.get("sem_cadastro_no_sapl"):
+                    continue
                 anterior = melhores.get(reg["id"])
                 if not anterior or escore > anterior[1]:
                     melhores[reg["id"]] = (reg, float(escore))

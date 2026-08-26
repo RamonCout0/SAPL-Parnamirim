@@ -1,125 +1,918 @@
 {
-  "_doc": "Catalogo de IDs dos selects do SAPL - Camara Municipal de Parnamirim. Extraido do HTML do formulario de cadastro de materia legislativa.",
-
-  "defaults": {
-    "tipo_materia": 6,
-    "ano": 2023,
-    "tipo_autor": 2,
-    "regime_tramitacao": 1
+ "_doc": "Catalogo de IDs dos selects do SAPL - Camara Municipal de Parnamirim. Extraido do HTML do formulario de cadastro de materia legislativa.",
+ "defaults": {
+  "tipo_materia": 6,
+  "ano": 2023,
+  "tipo_autor": 2,
+  "regime_tramitacao": 1
+ },
+ "tipo_materia": {
+  "17": "Projeto de emenda à Lei Orgânica",
+  "3": "Projeto de Lei Ordinária",
+  "1": "Projeto de Lei Complementar",
+  "10": "Projeto de Decreto Legislativo",
+  "7": "Projeto de Resolução",
+  "5": "Requerimento",
+  "6": "Indicação",
+  "13": "Moção de Aplauso",
+  "15": "Moção de Congratulação",
+  "12": "Moção de Pesar",
+  "9": "Moção de Apoio",
+  "16": "Moção de Repúdio",
+  "23": "Moção de Solidariedade",
+  "27": "Moção de Apelo",
+  "14": "Redação Final",
+  "19": "Veto",
+  "24": "Emenda LDO",
+  "25": "Emenda PPA",
+  "26": "Emenda LOA",
+  "42": "Emenda Aditiva",
+  "29": "Emenda Modificativa",
+  "41": "Emenda Supressiva",
+  "31": "Emenda Mista",
+  "30": "Atas das Sessões Ordinárias",
+  "35": "Parecer Comissão Constituição, Legislação e R.",
+  "39": "Parecer Comissão Finanças, Orçamento e F. F.",
+  "32": "Parecer da Comissão de Saúde",
+  "33": "Parecer da Comissão de Assistência Social",
+  "34": "Parecer Comissão de Cultura e Desporto",
+  "37": "Parecer Comissão de Educação",
+  "38": "Parecer Comissão Ética e Decoro Parlamentar",
+  "40": "Parecer Comissão de Saneamento",
+  "36": "Parecer Comissão Desenvolvimento Urbano e M. A.",
+  "22": "Prestação de Conta Anual"
+ },
+ "tipo_autor": {
+  "6": "Bancada Parlamentar",
+  "1": "Bloco Parlamentar",
+  "7": "Chefe do Poder Executivo Municipal",
+  "4": "Comissão",
+  "3": "Frente Parlamentar",
+  "11": "Iniciativa Popular de Projeto de Lei",
+  "5": "Órgão",
+  "2": "Parlamentar"
+ },
+ "regime_tramitacao": {
+  "1": "Ordinária",
+  "2": "Urgência",
+  "3": "Prioridade",
+  "4": "Urgência Urgentíssima"
+ },
+ "_autores_doc": "Lista completa do select de autor. 'parlamentar': true marca os que sao validos quando tipo_autor=2. 'aliases' sao grafias alternativas que aparecem nas assinaturas dos PDFs (acrescente conforme encontrar).",
+ "autores": [
+  {
+   "id": 40,
+   "nome": "Arquivo Geral - ARQUIVO",
+   "parlamentar": false,
+   "aliases": []
   },
-
-  "tipo_materia": {
-    "17": "Projeto de emenda à Lei Orgânica",
-    "3": "Projeto de Lei Ordinária",
-    "1": "Projeto de Lei Complementar",
-    "10": "Projeto de Decreto Legislativo",
-    "7": "Projeto de Resolução",
-    "5": "Requerimento",
-    "6": "Indicação",
-    "13": "Moção de Aplauso",
-    "15": "Moção de Congratulação",
-    "12": "Moção de Pesar",
-    "9": "Moção de Apoio",
-    "16": "Moção de Repúdio",
-    "23": "Moção de Solidariedade",
-    "27": "Moção de Apelo",
-    "14": "Redação Final",
-    "19": "Veto",
-    "24": "Emenda LDO",
-    "25": "Emenda PPA",
-    "26": "Emenda LOA",
-    "42": "Emenda Aditiva",
-    "29": "Emenda Modificativa",
-    "41": "Emenda Supressiva",
-    "31": "Emenda Mista",
-    "30": "Atas das Sessões Ordinárias",
-    "35": "Parecer Comissão Constituição, Legislação e R.",
-    "39": "Parecer Comissão Finanças, Orçamento e F. F.",
-    "32": "Parecer da Comissão de Saúde",
-    "33": "Parecer da Comissão de Assistência Social",
-    "34": "Parecer Comissão de Cultura e Desporto",
-    "37": "Parecer Comissão de Educação",
-    "38": "Parecer Comissão Ética e Decoro Parlamentar",
-    "40": "Parecer Comissão de Saneamento",
-    "36": "Parecer Comissão Desenvolvimento Urbano e M. A.",
-    "22": "Prestação de Conta Anual"
+  {
+   "id": 38,
+   "nome": "Autor - AUTOR",
+   "parlamentar": false,
+   "aliases": []
   },
-
-  "tipo_autor": {
-    "6": "Bancada Parlamentar",
-    "1": "Bloco Parlamentar",
-    "7": "Chefe do Poder Executivo Municipal",
-    "4": "Comissão",
-    "3": "Frente Parlamentar",
-    "11": "Iniciativa Popular de Projeto de Lei",
-    "5": "Órgão",
-    "2": "Parlamentar"
+  {
+   "id": 16,
+   "nome": "Binho de Ambrósio",
+   "parlamentar": true,
+   "aliases": [
+    "Binho de Ambrosio",
+    "Binho",
+    "Hamilton Rademacker Pereira",
+    "HAMILTON RADEMACKER PEREIRA"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)",
+    "15a (2017-2020)",
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
   },
-
-  "regime_tramitacao": {
-    "1": "Ordinária",
-    "2": "Urgência",
-    "3": "Prioridade",
-    "4": "Urgência Urgentíssima"
+  {
+   "id": 10,
+   "nome": "Carol Pires",
+   "parlamentar": true,
+   "aliases": [
+    "Caroline Pires",
+    "Carolina Pires",
+    "Ana Carolina Carvalho de Lima Pires"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
   },
-
-  "_autores_doc": "Lista completa do select de autor. 'parlamentar': true marca os que sao validos quando tipo_autor=2. 'aliases' sao grafias alternativas que aparecem nas assinaturas dos PDFs (acrescente conforme encontrar).",
-
-  "autores": [
-    { "id": 40, "nome": "Arquivo Geral - ARQUIVO", "parlamentar": false, "aliases": [] },
-    { "id": 38, "nome": "Autor - AUTOR", "parlamentar": false, "aliases": [] },
-    { "id": 16, "nome": "Binho de Ambrósio", "parlamentar": true, "aliases": ["Binho de Ambrosio", "Binho", "Hamilton Rademacker Pereira", "HAMILTON RADEMACKER PEREIRA"] },
-    { "id": 10, "nome": "Carol Pires", "parlamentar": true, "aliases": ["Caroline Pires", "Carolina Pires", "Ana Carolina Carvalho de Lima Pires"] },
-    { "id": 22, "nome": "Chicão", "parlamentar": true, "aliases": ["Chicao", "Francisco"] },
-    { "id": 4, "nome": "CPAS - Comissão Permanente de Assistência Social", "parlamentar": false, "aliases": [] },
-    { "id": 9, "nome": "CPCD - Comissão Permanente de Cultura e Desporto", "parlamentar": false, "aliases": [] },
-    { "id": 1, "nome": "CPCLRF - Comissão Permanente de Constituição, Legislação e Redação Final", "parlamentar": false, "aliases": [] },
-    { "id": 5, "nome": "CPDUMA - Comissão Permanente de Desenvolvimento Urbano e Meio Ambiente", "parlamentar": false, "aliases": [] },
-    { "id": 3, "nome": "CPE - Comissão Permanente de Educação", "parlamentar": false, "aliases": [] },
-    { "id": 6, "nome": "CPEDP - Comissão Permanente de Ética e Decoro Parlamentar", "parlamentar": false, "aliases": [] },
-    { "id": 2, "nome": "CPFOF - Comissão Permanente de Finanças, Orçamento e Fiscalização Financeira", "parlamentar": false, "aliases": [] },
-    { "id": 8, "nome": "CPSB - Comissão Permanente de Saneamento", "parlamentar": false, "aliases": [] },
-    { "id": 7, "nome": "CPS - Comissão Permanente de Saúde", "parlamentar": false, "aliases": [] },
-    { "id": 50, "nome": "CTAFOPV - Comissão Temporária de Acompanhamento e Fiscalização das Obras do Projeto Viário \"Via Verde\"", "parlamentar": false, "aliases": [] },
-    { "id": 25, "nome": "Departamento de Processo Legislativo - DPL", "parlamentar": false, "aliases": [] },
-    { "id": 48, "nome": "Departamento de Recursos Humanos - DRH", "parlamentar": false, "aliases": [] },
-    { "id": 52, "nome": "Diogo Rodrigues", "parlamentar": true, "aliases": [] },
-    { "id": 11, "nome": "Dr. César Maia", "parlamentar": true, "aliases": ["Dr. Cesar Maia", "César Maia", "Cesar Maia"] },
-    { "id": 12, "nome": "Eder Queiroz", "parlamentar": true, "aliases": ["Éder Queiroz"] },
-    { "id": 13, "nome": "Eurico da Japão", "parlamentar": true, "aliases": ["Eurico da Japao", "Eurico"] },
-    { "id": 42, "nome": "Fativan Alves", "parlamentar": true, "aliases": [] },
-    { "id": 35, "nome": "Frente Parlamentar Dos Direitos Das Mulheres", "parlamentar": false, "aliases": [] },
-    { "id": 55, "nome": "Frente Parlamentar em Defesa da Saúde Mental.", "parlamentar": false, "aliases": [] },
-    { "id": 54, "nome": "Frente Parlamentar Em Defesa Da Segurança Pública", "parlamentar": false, "aliases": [] },
-    { "id": 26, "nome": "Gabinete da Presidência - GP", "parlamentar": false, "aliases": [] },
-    { "id": 14, "nome": "Gabriel César", "parlamentar": true, "aliases": ["Gabriel Cesar"] },
-    { "id": 44, "nome": "Gustavo Negócio", "parlamentar": true, "aliases": ["Gustavo Negocio"] },
-    { "id": 17, "nome": "Irani Guedes", "parlamentar": true, "aliases": [] },
-    { "id": 18, "nome": "Jonas Godeiro", "parlamentar": true, "aliases": [] },
-    { "id": 19, "nome": "José Afrânio Bezerra da Silva", "parlamentar": true, "aliases": ["Jose Afranio Bezerra da Silva", "Afrânio Bezerra", "José Afrânio"] },
-    { "id": 28, "nome": "Léo Lima", "parlamentar": true, "aliases": ["Leo Lima", "Leonardo Lima"] },
-    { "id": 31, "nome": "Marquinhos da Climep", "parlamentar": true, "aliases": ["Marquinhos", "Marcos Antônio Gomes da Silva", "Marcos Antonio Gomes da Silva"] },
-    { "id": 36, "nome": "Mesa Diretora - MD", "parlamentar": false, "aliases": [] },
-    { "id": 33, "nome": "Michael Borges", "parlamentar": true, "aliases": [] },
-    { "id": 32, "nome": "Michael Diniz", "parlamentar": true, "aliases": [] },
-    { "id": 27, "nome": "Plenário - PLEN", "parlamentar": false, "aliases": [] },
-    { "id": 39, "nome": "Prefeitura Municipal de Parnamirim - PMP", "parlamentar": false, "aliases": [] },
-    { "id": 49, "nome": "Procuradoria - PROC", "parlamentar": false, "aliases": [] },
-    { "id": 51, "nome": "Professora Eliza", "parlamentar": true, "aliases": ["Profa. Eliza", "Eliza"] },
-    { "id": 24, "nome": "Professor Diego Américo", "parlamentar": true, "aliases": ["Prof. Diego Américo", "Diego Américo", "Diego Americo"] },
-    { "id": 23, "nome": "Professor Ítalo", "parlamentar": true, "aliases": ["Prof. Ítalo", "Professor Italo", "Ítalo", "Italo"] },
-    { "id": 47, "nome": "Protocolo - PROT", "parlamentar": false, "aliases": [] },
-    { "id": 20, "nome": "Rafaela de Nilda", "parlamentar": true, "aliases": ["Rafaela"] },
-    { "id": 37, "nome": "Raimunda Nilda da Silva Cruz", "parlamentar": true, "aliases": ["Nilda da Silva Cruz", "Raimunda Nilda"] },
-    { "id": 29, "nome": "Rárika Bastos", "parlamentar": true, "aliases": ["Rarika Bastos", "Rárika"] },
-    { "id": 21, "nome": "Rhalessa de Clênio", "parlamentar": true, "aliases": ["Rhalessa de Clenio", "Rhalessa"] },
-    { "id": 30, "nome": "Rodrigo Cruz", "parlamentar": true, "aliases": [] },
-    { "id": 46, "nome": "Rosano Taveira da Cunha", "parlamentar": true, "aliases": ["Rosano Taveira", "Rosano"] },
-    { "id": 34, "nome": "Serginho Muniz", "parlamentar": true, "aliases": ["Sérgio Muniz", "Serginho"] },
-    { "id": 53, "nome": "Silvio Menezes", "parlamentar": true, "aliases": ["Sílvio Menezes"] },
-    { "id": 15, "nome": "Thiago Fernandes", "parlamentar": true, "aliases": ["Tiago Fernandes"] },
-    { "id": 43, "nome": "Vavá Azevedo", "parlamentar": true, "aliases": ["Vava Azevedo", "Vavá", "Lindovaildo Soares de Azevedo", "Lindo Vaildo Soares de Azevedo"] },
-    { "id": 41, "nome": "Wolney França", "parlamentar": true, "aliases": ["Wolney Franca"] },
-    { "id": 45, "nome": "Zico Moura", "parlamentar": true, "aliases": [] }
-  ]
+  {
+   "id": 22,
+   "nome": "Chicão",
+   "parlamentar": true,
+   "aliases": [
+    "Chicao",
+    "Francisco",
+    "Rômulo Dantas da Silva"
+   ],
+   "legislaturas": [
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 4,
+   "nome": "CPAS - Comissão Permanente de Assistência Social",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 9,
+   "nome": "CPCD - Comissão Permanente de Cultura e Desporto",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 1,
+   "nome": "CPCLRF - Comissão Permanente de Constituição, Legislação e Redação Final",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 5,
+   "nome": "CPDUMA - Comissão Permanente de Desenvolvimento Urbano e Meio Ambiente",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 3,
+   "nome": "CPE - Comissão Permanente de Educação",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 6,
+   "nome": "CPEDP - Comissão Permanente de Ética e Decoro Parlamentar",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 2,
+   "nome": "CPFOF - Comissão Permanente de Finanças, Orçamento e Fiscalização Financeira",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 8,
+   "nome": "CPSB - Comissão Permanente de Saneamento",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 7,
+   "nome": "CPS - Comissão Permanente de Saúde",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 50,
+   "nome": "CTAFOPV - Comissão Temporária de Acompanhamento e Fiscalização das Obras do Projeto Viário \"Via Verde\"",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 25,
+   "nome": "Departamento de Processo Legislativo - DPL",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 48,
+   "nome": "Departamento de Recursos Humanos - DRH",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 52,
+   "nome": "Diogo Rodrigues",
+   "parlamentar": true,
+   "aliases": [
+    "Diogo Rodrigues da Silva"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)"
+   ]
+  },
+  {
+   "id": 11,
+   "nome": "Dr. César Maia",
+   "parlamentar": true,
+   "aliases": [
+    "Dr. Cesar Maia",
+    "César Maia",
+    "Cesar Maia",
+    "César Augusto De Paiva Maia"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 12,
+   "nome": "Eder Queiroz",
+   "parlamentar": true,
+   "aliases": [
+    "Éder Queiroz",
+    "Eder Rodrigues de Queiroz"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 13,
+   "nome": "Eurico da Japão",
+   "parlamentar": true,
+   "aliases": [
+    "Eurico da Japao",
+    "Eurico",
+    "Eurico Shigeyuki Dos Santos Shiiki"
+   ],
+   "legislaturas": [
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 42,
+   "nome": "Fativan Alves",
+   "parlamentar": true,
+   "aliases": [
+    "Fativan Alves Moura de Paiva"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)",
+    "16a (2021-2024)"
+   ]
+  },
+  {
+   "id": 35,
+   "nome": "Frente Parlamentar Dos Direitos Das Mulheres",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 55,
+   "nome": "Frente Parlamentar em Defesa da Saúde Mental.",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 54,
+   "nome": "Frente Parlamentar Em Defesa Da Segurança Pública",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 26,
+   "nome": "Gabinete da Presidência - GP",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 14,
+   "nome": "Gabriel César",
+   "parlamentar": true,
+   "aliases": [
+    "Gabriel Cesar",
+    "Gabriel César De Oliveira Siqueira"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 44,
+   "nome": "Gustavo Negócio",
+   "parlamentar": true,
+   "aliases": [
+    "Gustavo Negocio",
+    "Gustavo Negócio de Freitas"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)",
+    "15a (2017-2020)",
+    "16a (2021-2024)"
+   ]
+  },
+  {
+   "id": 17,
+   "nome": "Irani Guedes",
+   "parlamentar": true,
+   "aliases": [
+    "Irani Guedes De Medeiros"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)",
+    "15a (2017-2020)",
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 18,
+   "nome": "Jonas Godeiro",
+   "parlamentar": true,
+   "aliases": [],
+   "legislaturas": [
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 19,
+   "nome": "José Afrânio Bezerra da Silva",
+   "parlamentar": true,
+   "aliases": [
+    "Jose Afranio Bezerra da Silva",
+    "Afrânio Bezerra",
+    "José Afrânio"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 28,
+   "nome": "Léo Lima",
+   "parlamentar": true,
+   "aliases": [
+    "Leo Lima",
+    "Leonardo Lima"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 31,
+   "nome": "Marquinhos da Climep",
+   "parlamentar": true,
+   "aliases": [
+    "Marquinhos",
+    "Marcos Antônio Gomes da Silva",
+    "Marcos Antonio Gomes da Silva"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 36,
+   "nome": "Mesa Diretora - MD",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 33,
+   "nome": "Michael Borges",
+   "parlamentar": true,
+   "aliases": [
+    "Michael Borges de Souza"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 32,
+   "nome": "Michael Diniz",
+   "parlamentar": true,
+   "aliases": [
+    "José Michael Lucena Diniz"
+   ],
+   "legislaturas": [
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 27,
+   "nome": "Plenário - PLEN",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 39,
+   "nome": "Prefeitura Municipal de Parnamirim - PMP",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 49,
+   "nome": "Procuradoria - PROC",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 51,
+   "nome": "Professora Eliza",
+   "parlamentar": true,
+   "aliases": [
+    "Profa. Eliza",
+    "Eliza",
+    "Eliza Christina Toscano de Medonça Brito"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)"
+   ]
+  },
+  {
+   "id": 24,
+   "nome": "Professor Diego Américo",
+   "parlamentar": true,
+   "aliases": [
+    "Prof. Diego Américo",
+    "Diego Américo",
+    "Diego Americo",
+    "Diego Américo De Carvalho"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 23,
+   "nome": "Professor Ítalo",
+   "parlamentar": true,
+   "aliases": [
+    "Prof. Ítalo",
+    "Professor Italo",
+    "Ítalo",
+    "Italo",
+    "Ítalo de Brito Siqueira"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)",
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 47,
+   "nome": "Protocolo - PROT",
+   "parlamentar": false,
+   "aliases": []
+  },
+  {
+   "id": 20,
+   "nome": "Rafaela de Nilda",
+   "parlamentar": true,
+   "aliases": [
+    "Rafaela"
+   ],
+   "legislaturas": [
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 37,
+   "nome": "Raimunda Nilda da Silva Cruz",
+   "parlamentar": true,
+   "aliases": [
+    "Nilda da Silva Cruz",
+    "Raimunda Nilda",
+    "Professora Nilda"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)"
+   ]
+  },
+  {
+   "id": 29,
+   "nome": "Rárika Bastos",
+   "parlamentar": true,
+   "aliases": [
+    "Rarika Bastos",
+    "Rárika"
+   ],
+   "legislaturas": [
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 21,
+   "nome": "Rhalessa de Clênio",
+   "parlamentar": true,
+   "aliases": [
+    "Rhalessa de Clenio",
+    "Rhalessa",
+    "Rhalessa Freire"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)",
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 30,
+   "nome": "Rodrigo Cruz",
+   "parlamentar": true,
+   "aliases": [],
+   "legislaturas": [
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 46,
+   "nome": "Rosano Taveira da Cunha",
+   "parlamentar": true,
+   "aliases": [
+    "Rosano Taveira",
+    "Rosano",
+    "Taveira"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)",
+    "14a (2013-2016)"
+   ]
+  },
+  {
+   "id": 34,
+   "nome": "Serginho Muniz",
+   "parlamentar": true,
+   "aliases": [
+    "Sérgio Muniz",
+    "Serginho",
+    "Sergio Murilo Muniz de Araujo"
+   ],
+   "legislaturas": [
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 53,
+   "nome": "Silvio Menezes",
+   "parlamentar": true,
+   "aliases": [
+    "Sílvio Menezes",
+    "Silvio dos Guimarães Teixeira de Menezes"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)"
+   ]
+  },
+  {
+   "id": 15,
+   "nome": "Thiago Fernandes",
+   "parlamentar": true,
+   "aliases": [
+    "Tiago Fernandes"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 43,
+   "nome": "Vavá Azevedo",
+   "parlamentar": true,
+   "aliases": [
+    "Vava Azevedo",
+    "Vavá",
+    "Lindovaildo Soares de Azevedo",
+    "Lindo Vaildo Soares de Azevedo"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)"
+   ]
+  },
+  {
+   "id": 41,
+   "nome": "Wolney França",
+   "parlamentar": true,
+   "aliases": [
+    "Wolney Franca",
+    "Wolney Freitas de Azevedo França"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)",
+    "17a (2025-2028)"
+   ]
+  },
+  {
+   "id": 45,
+   "nome": "Zico Moura",
+   "parlamentar": true,
+   "aliases": [
+    "Zico Matias de Moura"
+   ],
+   "legislaturas": [
+    "16a (2021-2024)"
+   ]
+  },
+  {
+   "id": 0,
+   "nome": "Abidene",
+   "parlamentar": true,
+   "aliases": [
+    "Abidene Salustiano da Silva"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)",
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Batista",
+   "parlamentar": true,
+   "aliases": [
+    "Antônio Batista Barros"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Betinho da Mala",
+   "parlamentar": true,
+   "aliases": [
+    "Carlos Alberto da Silva Targino"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Carlos Maia",
+   "parlamentar": true,
+   "aliases": [
+    "Carlos Augusto de César Maia"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Clênio",
+   "parlamentar": true,
+   "aliases": [
+    "Clênio José dos Santos"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)",
+    "14a (2013-2016)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Diniz",
+   "parlamentar": true,
+   "aliases": [
+    "Manoel Diniz"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)",
+    "14a (2013-2016)",
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Elienai",
+   "parlamentar": true,
+   "aliases": [
+    "Elienai Dantas Cartaxo"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)",
+    "14a (2013-2016)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Gildásio",
+   "parlamentar": true,
+   "aliases": [
+    "Francisco Gildásio de Figueiredo"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)",
+    "14a (2013-2016)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Giovani",
+   "parlamentar": true,
+   "aliases": [
+    "Giovani Rodrigues Júnior"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Jeová",
+   "parlamentar": true,
+   "aliases": [
+    "Jeová Alves da Costa"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)",
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Katia Pires",
+   "parlamentar": true,
+   "aliases": [
+    "Katia Carvalho de Lima"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)",
+    "14a (2013-2016)",
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Lucinha",
+   "parlamentar": true,
+   "aliases": [
+    "Maria Lúcia Costa Thiago"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Pastor Alex",
+   "parlamentar": true,
+   "aliases": [
+    "Alex Sandro da Conceição Nunes da Silva"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Paulo Miranda",
+   "parlamentar": true,
+   "aliases": [
+    "Paulo Estevão de Miranda"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Paulão",
+   "parlamentar": true,
+   "aliases": [
+    "Paulo Barbosa da Silva"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Paulão Júnior",
+   "parlamentar": true,
+   "aliases": [
+    "Paulo Barbosa da Silva Júnior"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)",
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Professora Vandilma",
+   "parlamentar": true,
+   "aliases": [
+    "Vandilma Maria de Oliveira"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Ricardo Gurgel",
+   "parlamentar": true,
+   "aliases": [
+    "Ricardo Hiraruy Alencar Gurgel"
+   ],
+   "legislaturas": [
+    "14a (2013-2016)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Rogério Santiago",
+   "parlamentar": true,
+   "aliases": [
+    "Rogério César Santiago"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Siderley",
+   "parlamentar": true,
+   "aliases": [
+    "Siderley Bezerra da Silva"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Sérgio Andrade",
+   "parlamentar": true,
+   "aliases": [
+    "Sérgio Roberto de Andrade Rebouças"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Thiago Cartaxo",
+   "parlamentar": true,
+   "aliases": [
+    "Anthony Thiago Cartaxo Ferreira"
+   ],
+   "legislaturas": [
+    "15a (2017-2020)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Valério",
+   "parlamentar": true,
+   "aliases": [
+    "Valério Felipe Santiago"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)",
+    "14a (2013-2016)"
+   ],
+   "sem_cadastro_no_sapl": true
+  },
+  {
+   "id": 0,
+   "nome": "Walkyria Fonseca",
+   "parlamentar": true,
+   "aliases": [
+    "Walkyria Diniz Fonseca"
+   ],
+   "legislaturas": [
+    "13a (2009-2012)"
+   ],
+   "sem_cadastro_no_sapl": true
+  }
+ ],
+ "_autores_sincronizado_em": "2026-08-26 08:55"
 }

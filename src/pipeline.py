@@ -38,7 +38,7 @@ from pypdf import PdfReader, PdfWriter
 
 from . import ollama_client
 from .autores import ResolvedorAutor
-from .campos import extrair_ementa, extrair_nome_autor
+from .campos import extrair_ementa, extrair_nome_autor, problemas_na_ementa
 from .datas import achar_pagina_do_carimbo, data_de_apresentacao
 from .config import (
     INPUT_DIR,
@@ -84,10 +84,23 @@ GLOSSARIO = REVISAO_DIR / "glossario.csv"
 # so esse registro permite distinguir os dois casos e nao recriar o segundo.
 PDFS_GERADOS = OUTPUT_DIR / "pdfs_gerados.json"
 
-# Um nome de arquivo terminando em "@AAAA.pdf" (o padrao que voce ja usa,
-# tipo "..._300_A_201@2023.pdf") define o ano so daquele arquivo, sem precisar
+# Um nome de arquivo com "@AAAA" define o ano so daquele arquivo, sem precisar
 # passar --ano toda vez. Sem isso no nome, vale o --ano do comando (ou 2023).
-_ANO_NO_NOME_RE = re.compile(r"@(\d{4})(?:\.pdf)?$", re.IGNORECASE)
+#
+# O "@AAAA" pode estar em QUALQUER posicao do nome, nao so no fim. A versao
+# anterior exigia que o nome TERMINASSE em "@AAAA.pdf" e, com isso, falhava em
+# silencio em todo lote dividido em partes - justamente o formato da maioria
+# dos arquivos reais:
+#     TODAS_INDICACOES@2010.p1.pdf
+#     TODAS_INDICACOES@2013.P1.pdf
+#     TODAS_INDICACOES_ATUALIZADAS@2019_P10_frenteverso.pdf
+# Medido em 26/08/2026 sobre os 78 PDFs de 2009-2020: 46 deles (59%) nao
+# casavam e caiam sem aviso nenhum no ano padrao 2023 - ou seja, indicacoes de
+# 2010 seriam cadastradas no SAPL como se fossem de 2023. Erro silencioso e
+# pior que erro barulhento: nada no output denunciava a troca.
+#
+# Quando ha mais de um "@AAAA" no nome, vale o ULTIMO - o mais especifico.
+_ANO_NO_NOME_RE = re.compile(r"@(\d{4})(?!\d)", re.IGNORECASE)
 
 
 @dataclass
@@ -214,8 +227,15 @@ def _texto_do_bloco(mapa: dict[int, str], ini: int, fim: int) -> str:
 
 
 def _ano_do_nome_arquivo(caminho: Path) -> int | None:
-    m = _ANO_NO_NOME_RE.search(caminho.stem + ".pdf")
-    return int(m.group(1)) if m else None
+    achados = _ANO_NO_NOME_RE.findall(caminho.stem)
+    if not achados:
+        return None
+    # O ultimo "@AAAA" vence: e o mais especifico quando o nome tem mais de um.
+    ano = int(achados[-1])
+    # Ano fora da faixa plausivel nao e ano: e numero de protocolo que por
+    # acaso veio depois de "@". Melhor devolver None e deixar o --ano decidir
+    # do que cadastrar o lote inteiro num ano inventado.
+    return ano if 1990 <= ano <= 2100 else None
 
 
 def processar_pasta(
@@ -703,6 +723,11 @@ def _classificar(ind: Indicacao) -> None:
             motivos.append(f"ementa curta demais ({len(ind.ementa)} caracteres)")
         elif len(ind.ementa) > EMENTA_MAX:
             motivos.append(f"ementa longa demais ({len(ind.ementa)} caracteres)")
+        # Ementa com o tamanho certo e a estrutura certa ainda pode ter
+        # "INbICACÁO" no meio. Esses avisos apontam o trecho suspeito, para a
+        # conferencia ir direto ao ponto em vez de reler tudo. So valem para
+        # ementa vinda do OCR: o que voce transcreveu nao tem o que auditar.
+        motivos.extend(problemas_na_ementa(ind.ementa))
 
     # Prefixo "ementa:" nao e enfeite: e o que _o_que_resolve usa para saber
     # que quem resolve isto e o campo de ementa, e nao o "ja conferi".

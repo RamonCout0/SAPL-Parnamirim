@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 
-from .config import VERBOS_EMENTA
+from .config import VERBOS_EMENTA, VERBOS_EMENTA_ANTIGOS
 
 # \b protege o radical: "INDICA" nao casa dentro de "INDICAÇÃO" porque C-cedilha
 # e caractere de palavra em modo unicode.
@@ -25,7 +25,17 @@ _VERBOS_RE = re.compile(
     re.IGNORECASE,
 )
 
-FIM_EMENTA_RE = re.compile(r"\bJUSTIFICATIVA\b", re.IGNORECASE)
+# Segunda tentativa, so quando a lista principal nao casa nada. Ver o
+# comentario de VERBOS_EMENTA_ANTIGOS em config.py.
+_VERBOS_ANTIGOS_RE = re.compile(
+    r"\b(" + "|".join(v.replace(" ", r"\s+") for v in VERBOS_EMENTA_ANTIGOS) + r")\b",
+    re.IGNORECASE,
+)
+
+# O papel antigo escreve "JUSTIFICACAO" onde o atual escreve
+# "JUSTIFICATIVA". Sem as duas grafias a ementa nao terminava no lugar
+# certo e seguia engolindo o texto da justificativa inteira.
+FIM_EMENTA_RE = re.compile(r"\bJUSTIFICA(?:TIVA|[ÇC][ÃA]O)\b", re.IGNORECASE)
 
 # Quando o OCR perde a palavra "Justificativa", estes marcam onde a ementa
 # certamente ja acabou (abertura da justificativa, fecho ou rodape).
@@ -111,6 +121,119 @@ def _normalizar_espacos(texto: str) -> str:
     return texto.strip(" ,;.:-–—\t")
 
 
+# ---------------------------------------------------------------------- #
+# Sinais de OCR estragado DENTRO de uma ementa que saiu "inteira".
+#
+# A ementa vazia voce ve na hora. A ementa que saiu com o tamanho certo e a
+# estrutura certa, mas com "INbICACÁO" no meio, passa batido - e um documento
+# oficial nao pode ir assim para o SAPL. Estes avisos existem para a
+# conferencia deixar de ser "reler tudo" e virar "olhar onde o programa
+# desconfia".
+#
+# Todas as regras abaixo foram AFERIDAS sobre as 7.840 ementas extraidas dos
+# lotes de 2009 a 2020 (26/08/2026), com o numero de acertos ao lado. Regra que
+# grita a toa e pior que regra nenhuma: quem recebe aviso demais para de ler
+# aviso.
+#
+# Uma regra foi testada e DESCARTADA: "texto picado", que media a proporcao de
+# pedacos de 1 a 2 letras. Marcava 16% das ementas, e o que ela pegava era
+# portugues correto - "os indicativos N° 061/2010 e N° 103/2011 junto à
+# Presidência da" tem 67% de tokens curtos porque "os", "e", "à", "da" e "N"
+# sao palavras de verdade. Nao ha regra de tamanho de palavra que separe
+# portugues de lixo.
+
+# Tudo que pode aparecer numa ementa digitada em portugues, pontuacao inclusa.
+# Aspas (2.224 ocorrencias) e travessao (1.673) sao pontuacao legitima e nao
+# podem virar suspeita - foi por isso que esta lista foi medida, nao chutada.
+_CARACTERES_LEGITIMOS = set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "áàâãéêíóôõúüçÁÀÂÃÉÊÍÓÔÕÚÜÇ"
+    "0123456789"
+    " \n\t"
+    ".,;:()[]{}/-–—%º°ª'\"!?§&+=@#$*"
+)
+
+# Digito NO MEIO de uma palavra: o OCR trocou uma letra por um numero parecido
+# ("i7a", "M0P", "r1e"). Digito no fim ou no comeco nao entra: "150w" e
+# potencia de lampada e "M68" e codigo de rota, os dois legitimos.
+_DIGITO_NO_MEIO_RE = re.compile(r"[A-Za-zÀ-ÿ]\d+[A-Za-zÀ-ÿ]")
+
+# Caixa alta com minuscula enfiada no meio: "INbICACÁO", "PAVtMENTAÇÃO".
+_CAIXA_MISTURADA_RE = re.compile(r"\b[A-ZÀ-Ý]{2,}[a-zà-ÿ]\w*\b")
+# ... menos o plural e o feminino de sigla, que sao escrita normal:
+# "UBSs", "ACDs", "EPIs", "PROFa", "SRa".
+_SUFIXOS_DE_SIGLA = ("s", "a", "as", "os", "es")
+
+# Palavra de 4+ letras sem nenhuma vogal ("nncfnc", "mptndn", "Fxpr"): o OCR
+# embaralhou. Sigla em CAIXA ALTA fica de fora - "SMTT", "CBMRN" e "PMRN" sao
+# orgaos de verdade.
+_SEM_VOGAL_RE = re.compile(
+    r"\b(?![aeiouáàâãéêíóôõúüAEIOUÁÀÂÃÉÊÍÓÔÕÚÜ])"
+    r"[bcdfghjklmnpqrstvwxzçBCDFGHJKLMNPQRSTVWXZÇ]{4,}\b"
+)
+
+# Quantos exemplos mostrar no aviso. Mais que isso vira parede de texto e
+# ninguem le - o objetivo e apontar onde olhar, nao listar tudo.
+_MAX_EXEMPLOS = 3
+
+
+def _amostra(itens: list[str]) -> str:
+    unicos = list(dict.fromkeys(itens))
+    corte = unicos[:_MAX_EXEMPLOS]
+    sufixo = f" +{len(unicos) - _MAX_EXEMPLOS}" if len(unicos) > _MAX_EXEMPLOS else ""
+    return ", ".join(corte) + sufixo
+
+
+def problemas_na_ementa(ementa: str) -> list[str]:
+    """Avisos sobre OCR estragado dentro de uma ementa que saiu inteira.
+
+    Devolve frases prontas para a lista de motivos, cada uma ja apontando o
+    trecho suspeito. Lista vazia = nada a estranhar.
+
+    Nao julga se a ementa esta CERTA - isso so o papel diz. Julga se ela tem
+    marca de OCR quebrado, que e o que da para saber sem olhar o original.
+    """
+    ementa = (ementa or "").strip()
+    if not ementa:
+        return []
+
+    avisos: list[str] = []
+
+    estranhos = sorted({c for c in ementa if c not in _CARACTERES_LEGITIMOS})
+    if estranhos:
+        avisos.append(
+            f"ementa: caractere que nao existe em portugues ({_amostra(estranhos)})"
+            " - confira no PNG"
+        )
+
+    digitos = _DIGITO_NO_MEIO_RE.findall(ementa)
+    if digitos:
+        avisos.append(
+            f"ementa: digito no meio de palavra ({_amostra(digitos)})"
+            " - o OCR trocou letra por numero"
+        )
+
+    caixa = []
+    for t in _CAIXA_MISTURADA_RE.findall(ementa):
+        maiusculas = re.match(r"^[A-ZÀ-Ý]+", t).group(0)
+        if t[len(maiusculas):] not in _SUFIXOS_DE_SIGLA:
+            caixa.append(t)
+    if caixa:
+        avisos.append(
+            f"ementa: maiuscula e minuscula misturadas ({_amostra(caixa)})"
+            " - o OCR trocou letra"
+        )
+
+    sem_vogal = [t for t in _SEM_VOGAL_RE.findall(ementa) if not t.isupper()]
+    if sem_vogal:
+        avisos.append(
+            f"ementa: palavra sem vogal ({_amostra(sem_vogal)})"
+            " - o OCR embaralhou"
+        )
+
+    return avisos
+
+
 def extrair_ementa(texto_bloco: str) -> dict:
     """Retorna {ementa, verbo, metodo, confianca}.
 
@@ -118,6 +241,26 @@ def extrair_ementa(texto_bloco: str) -> dict:
     contra o PDF. A versao apresentavel e produzida pelo Ollama depois.
     """
     m_verbo = _VERBOS_RE.search(texto_bloco)
+    prefixo_metodo = "verbo"
+    if not m_verbo:
+        # Modelo antigo do papel ("... a presente Indicacao, SUGERINDO ao
+        # Senhor Prefeito ..."). So chega aqui quando nenhum verbo da lista
+        # principal casou, entao nada do que ja funcionava muda de resultado.
+        #
+        # TRAVA: o verbo antigo so vale se estiver ANTES da "Justificativa".
+        # Os verbos desta lista sao palavras comuns ("solicita", "sugere") e
+        # tambem aparecem no meio do texto da justificacao. Sem esta trava,
+        # uma indicacao cujo verbo de verdade o OCR destruiu ("1N,RICA" no
+        # lugar de "INDICA", caso real da 42/2010) pescaria um "solicita" la
+        # embaixo e produziria uma ementa tirada da justificativa - com
+        # confianca 0.9, sem nada denunciando. Ementa errada e pior que
+        # ementa vazia: a vazia voce ve na conferencia, a errada passa.
+        m_fim = FIM_EMENTA_RE.search(texto_bloco)
+        limite = m_fim.start() if m_fim else len(texto_bloco)
+        m_antigo = _VERBOS_ANTIGOS_RE.search(texto_bloco)
+        if m_antigo and m_antigo.start() < limite:
+            m_verbo = m_antigo
+            prefixo_metodo = "verbo-antigo"
     if not m_verbo:
         return {"ementa": "", "verbo": None, "metodo": "sem-verbo", "confianca": 0.0}
 
@@ -138,10 +281,10 @@ def extrair_ementa(texto_bloco: str) -> dict:
     if limites:
         corte, nome, confianca = min(limites)
         bruto = resto[:corte]
-        metodo = f"verbo..{nome}"
+        metodo = f"{prefixo_metodo}..{nome}"
     else:
         bruto = resto[:900]
-        metodo = "verbo..corte-900"
+        metodo = f"{prefixo_metodo}..corte-900"
         confianca = 0.4
 
     ementa = _normalizar_espacos(bruto)
