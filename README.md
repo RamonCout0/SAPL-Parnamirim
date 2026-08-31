@@ -31,7 +31,7 @@ para revisão manual em vez de travar o processamento.
 | Autor | nome do papel → id do SAPL (alias + rapidfuzz + glossário) |
 | Regime de tramitação | fixo: **Ordinária** (id 1) |
 | Tipo de apresentação | fixo: **Escrita** ("E") |
-| Ementa | texto após INDICA / REITERA / RETIRA / VEM INDICAR, até "Justificativa" — preenchida **EM CAIXA ALTA** |
+| Ementa | texto após INDICA / REITERA / RETIRA / VEM INDICAR, até "Justificativa" (ou "Justificação") — preenchida **EM CAIXA ALTA** |
 | **Data de apresentação** | **você**, na aba 2 — escrita à mão no carimbo, que a tela mostra ao lado do campo; daí em diante o programa a digita no SAPL |
 | Texto original (anexo) | o PDF de `output/pdfs/` é anexado pelo programa |
 
@@ -151,16 +151,32 @@ individual"**. É uma resposta, não a ausência de uma: o programa só deixa
 passar sem autor quando você marca isso. Autor em branco continua segurando a
 indicação — é o que impede uma assinatura mal lida de virar cadastro sem autor.
 
+**A ordem é a do número, não a do escaneamento.** A extração varre os PDFs por
+nome de arquivo, e o nome não diz a numeração: o `2030_A_1901` entra antes do
+`1000_A_901` só porque tem um espaço onde o outro tem `_`. Dentro de vários
+deles a numeração ainda **desce**. Sem ordenar, a conferência de 2023 tinha
+**95 quebras de sequência em 1849 indicações** — abria na 1901, subia até a
+2030, caía na 985, descia até a 901, pulava para a 1001. Quem confere lê o
+papel e procura o número; saltar de centena em centena a cada tela obriga a
+reencontrar o lugar no maço toda vez. Agora a próxima tela é a próxima folha.
+
+As poucas cujo **número o OCR não leu** ficam juntas no começo (em 2023 são
+três: lidas como 2, 69 e 158). É onde elas são mais fáceis de resolver — e,
+corrigido o número, cada uma vai para o meio das vizinhas de verdade, sem a
+tela perder o seu lugar.
+
 Dois botões dessa tela existem para conferir o que vai de fato para o SAPL:
 
 - **Ver o PDF do SAPL** abre o arquivo fatiado de `output/pdfs/` — o mesmo que
   será anexado. As imagens ao lado mostram o conteúdo; só o PDF prova o que o
   SAPL vai receber.
-- **Esta é continuação da anterior — juntar ↑** é a saída para quando a máquina
-  partiu uma indicação em duas (uma folha de anexo lida como começo, um
-  cabeçalho destruído no meio). As páginas passam para a indicação de cima e
-  viram um PDF só. Fica gravado em `config/juncoes.json` e vale para sempre —
-  não precisa refazer a cada rodada. Vale a partir do processamento seguinte.
+- **Esta é continuação da folha de cima — juntar ↑** é a saída para quando a
+  máquina partiu uma indicação em duas (uma folha de anexo lida como começo, um
+  cabeçalho destruído no meio). "De cima" é **no escaneamento**, não a tela
+  anterior: a junção é gravada por *(arquivo, página)*, e a conferência vem por
+  ordem de número. As páginas passam para aquela indicação e viram um PDF só.
+  Fica gravado em `config/juncoes.json` e vale para sempre — não precisa
+  refazer a cada rodada. Vale a partir do processamento seguinte.
 - **Aqui começa outra indicação — separar ↓** é o contrário, para quando a
   máquina *grudou* duas indicações numa só. Você escolhe em que página a
   segunda começa (o número da página está escrito acima de cada imagem) e
@@ -213,14 +229,43 @@ A caixa **Fila de envio** manda nos dois botões, o manual e o automático.
   650 tira as 601–649. Enquanto você digita, a frase abaixo do campo diz
   exatamente o que vai acontecer (*"Vai da 350/2023 até a 301/2023 — 50
   indicação(ões), deixando 50 de fora"*).
-- **Já enviei até aqui** tira essas anteriores da fila **de vez**. É para as
-  que você cadastrou à mão, antes de o programa existir ou fora dele: ele não
-  tem como saber delas sozinho, e sem isso elas voltavam para a fila toda
-  sessão, o contador ficava errado e *todas* queria dizer "as 400 de novo".
-  Elas aparecem na tabela como **"marcada por você"** — diferente de
-  **"cadastrada"**, que é o que o programa fez e conferiu na tela do SAPL. Se
-  errar o número, o botão *Desfazer* aparece ao lado e devolve todas para a
-  fila.
+### Tirar da fila o que você já cadastrou à mão
+
+O programa só sabe das indicações que **ele** cadastrou. As que você mandou à
+mão — antes de ele existir, ou por fora dele — são invisíveis para ele: sem
+avisar, elas voltavam para a fila toda sessão, o contador ficava errado e
+*todas* queria dizer "as 400 de novo".
+
+A caixa **Já cadastrei essas à mão** resolve isso de duas maneiras, porque "já
+mandei essas" quase nunca quer dizer "as primeiras da fila":
+
+- **Por faixa** — *Tirar da fila da ▢ até a ▢*. É o caso da 1901–1945, que foi
+  cadastrada à mão enquanto o trabalho de hoje está na 901–1000: elas caem no
+  **meio** da lista, e não existe um número só que as alcance sem levar junto
+  centenas que ainda faltam enviar. Deixando o primeiro campo em branco, tira
+  tudo desde o começo da fila — que é o antigo *"Já enviei até aqui"*.
+  Escrever *da 1901 até a 1945* ou *da 1945 até a 1901* dá na mesma: são os
+  mesmos documentos, e o sentido do lote é detalhe do PDF.
+- **Por linha** — selecione na tabela (Ctrl e Shift pegam várias) e clique em
+  **Tirar da fila**. É para as avulsas, que faixa nenhuma pega: a 1476
+  cadastrada solta meses atrás, três números espalhados que voltaram do
+  cartório.
+
+Enquanto você digita, a frase abaixo dos campos diz exatamente quantas e quais
+vão sair — este botão marca dezenas de uma vez, e uma marcada por engano some
+da fila sem nunca ter entrado no SAPL.
+
+As tiradas assim aparecem na tabela como **"marcada por você"** — diferente de
+**"cadastrada"**, que é o que o programa fez e conferiu na tela do SAPL.
+
+**O caminho de volta:** *Desfazer* alcança a última marcação da sessão.
+**Devolver para a fila** (com as linhas selecionadas) funciona a qualquer
+momento, inclusive dias depois — sem ele, quem errasse um número e fechasse o
+programa ficava com a indicação marcada como cadastrada para sempre. Ele só
+devolve o que **você** declarou: o que o programa cadastrou e viu entrar no
+SAPL não volta, porque apagar esse registro não desfaz o cadastro — só faria o
+programa oferecer a indicação de novo e criar uma segunda matéria para o mesmo
+documento.
 
 ## A data de apresentação: onde ela está, e por que não dá para lê-la
 
@@ -253,6 +298,32 @@ A leitura automática continua tentando, para o caso de algum dia o carimbo vir
 datilografado — mas nunca a partir da data do Plenário. Oferecer a data errada
 para copiar é pior do que não oferecer nenhuma.
 
+### Modelo com visão: testado, reprovado para a data (26/08/2026)
+
+A pergunta óbvia é se um modelo que enxerga a imagem resolveria o carimbo.
+Foi testado de verdade: `qwen2.5vl:3b` no Ollama (3,2 GB — é o maior que cabe
+nos 4 GB de VRAM da GTX 1650 desta máquina; um 7B cairia para a CPU).
+
+Ele **responde bonito e erra**. O formato sai limpo, sem caractere estranho,
+sempre `DD/MM/AAAA` — e nas duas amostras que deu para conferir olhando a
+imagem ampliada, errou o mês do mesmo jeito:
+
+```
+carimbo:  04 / 0Ə / ƏOƏO       modelo: 04/03/2020    certo: 04/02/2020
+carimbo:  10 / 0Ə / ƏOƏO       modelo: 10/03/2020    certo: 10/02/2020
+```
+
+O `Ə` é como esta pessoa escreve o **2** — e dá para provar: é o mesmo traço
+dos dois "2" de `2020`, no mesmo carimbo. O modelo lê esse traço como `3`.
+
+Erro assim é o pior tipo: vem no formato certo, sem nenhum sinal de dúvida.
+Se a resposta chegasse rasurada ou com símbolo esquisito, dava para filtrar;
+como ela chega perfeita, só a conferência humana pega. Por isso o modelo de
+visão **não está ligado no programa**. Nem como sugestão ao lado da imagem:
+um palpite errado exibido junto do carimbo ancora quem está digitando, e o
+mês errado passaria. Vale a mesma regra do modelo de texto — ver
+"Onde o Ollama entra (e onde não entra)".
+
 A interface chama exatamente o mesmo código dos scripts de terminal — os dois
 caminhos produzem o mesmo resultado. Quem prefere terminal continua com os
 scripts descritos abaixo.
@@ -264,9 +335,18 @@ scripts descritos abaixo.
 ### 1. Colocar os PDFs em `input/`
 
 Copie os lotes de indicações para dentro de `input/`. Pode colocar mais de um
-de uma vez. Se o nome do arquivo terminar em `@AAAA.pdf` (o padrão que você já
-usa, tipo `..._300_A_201@2023.pdf`), o ano daquele lote é lido do próprio
-nome; senão vale o `--ano` do comando (2023 por padrão).
+de uma vez. Se o nome do arquivo tiver `@AAAA` **em qualquer posição** (o
+padrão que você já usa, tipo `..._300_A_201@2023.pdf`), o ano daquele lote é
+lido do próprio nome; senão vale o `--ano` do comando (2023 por padrão).
+
+> **Corrigido em 26/08/2026.** Antes, o `@AAAA` só era reconhecido quando o
+> nome **terminava** nele. Todo lote dividido em partes escapava —
+> `TODAS_INDICAÇÕES@2010.p1.pdf`, `...@2013.P1.pdf`,
+> `...@2019_P10_frenteverso.pdf`. Dos 78 PDFs de 2009 a 2020, **46 (59%)
+> caíam sem aviso nenhum no ano padrão**: indicações de 2010 seriam
+> cadastradas no SAPL como se fossem de 2023, e nada no output denunciava a
+> troca. Se você sempre passou `--ano`, nunca foi atingido — o `--ano`
+> explícito vence a leitura do nome, e continua vencendo.
 
 ### 2. Conferir o fatiamento (opcional, mas recomendado no primeiro lote)
 
@@ -500,6 +580,43 @@ Três armadilhas reais do documento, todas tratadas:
    bloco sem esconder nada. Batendo as duas, o bloco vai para a conferência
    dizendo qual indicação sumiu, e lá você separa (veja o botão *separar ↓*).
 
+## O papel antigo escreve diferente (lotes de 2009 em diante)
+
+O modelo de indicação mudou ao longo dos anos, e o programa só conhecia o
+atual. Corrigido em 26/08/2026, depois de rodar os lotes de 2009 a 2020.
+
+**Verbo.** Onde o papel de hoje diz "o vereador **INDICA**", o antigo diz:
+
+> Apresento a V.Exa., nos termos do Artº 148 do Regimento Interno, a presente
+> Indicação, **sugerindo** ao Senhor Prefeito *&lt;o pedido&gt;* por se tratar
+> de medida de interesse público.
+
+e também "solicitar à Presidência da Mesa Diretora, que seja **INDICADO** ao
+Chefe do Executivo Municipal *&lt;o pedido&gt;*" — particípio, que não casa em
+`\bINDICA\b` porque não há fronteira de palavra antes do "DO".
+
+Sem essas formas, a ementa saía **vazia** e o programa acusava *"verbo ilegível
+no OCR — transcrever pelo PNG"*. O recado estava errado: o OCR estava perfeito,
+quem não conhecia a palavra era o programa. No lote de 2010 isso atingia **160
+das 426** indicações (38%), todas com o texto limpo e legível no PDF. Depois da
+correção, 153 dessas 160 saem sozinhas — as 7 que sobram são OCR realmente
+corrompido (`1N,RICA` no lugar de `INDICA`), onde o recado passa a ser verdade.
+
+**Fim da ementa.** O papel antigo escreve **"JUSTIFICAÇÃO"** onde o atual
+escreve "JUSTIFICATIVA". As duas grafias agora encerram a ementa.
+
+Essa lista antiga é **separada** da principal e só é consultada quando nenhum
+verbo atual casa — assim os lotes de 2020 em diante, que já foram conferidos e
+enviados, não mudam de resultado. Conferido: as **581 ementas de 2020 saem
+idênticas**, byte a byte, antes e depois da mudança.
+
+Há ainda uma trava: o verbo antigo só vale se aparecer **antes** da
+"Justificativa". Verbos como "solicita" e "sugere" são palavras comuns e também
+aparecem no meio do texto da justificação — sem a trava, uma indicação com o
+verbo destruído pelo OCR pescaria um "solicita" lá embaixo e produziria uma
+ementa tirada da justificativa, com confiança 0,9 e nada denunciando. Ementa
+errada é pior que ementa vazia: a vazia você vê na conferência, a errada passa.
+
 ## Página sem OCR nenhum
 
 Todo PDF passa por essa checagem, página por página. Se o texto embutido no
@@ -533,11 +650,134 @@ Então o desenho é:
 A ementa que vai para o SAPL é sempre o **texto literal do OCR** ou o que você
 transcreveu — nunca uma reescrita do modelo.
 
+## O catálogo de vereadores (`scripts/sincronizar_autores.py`)
+
+```bash
+.venv\Scripts\python scripts\sincronizar_autores.py --simular   # só mostra
+.venv\Scripts\python scripts\sincronizar_autores.py             # grava
+```
+
+Puxa da API aberta do SAPL a lista completa de parlamentares e atualiza
+`config/sapl_ids.json`. **Rode uma vez antes de começar um lote de ano
+antigo**, e de novo sempre que um vereador novo for cadastrado no SAPL.
+
+**Por que isto passou a existir.** O `sapl_ids.json` tinha sido montado a
+partir do HTML do formulário — que só mostra os autores válidos para a data
+que estiver na tela. Com a data de hoje aparecem 32 parlamentares. A Câmara
+tem **56**. Os 24 que faltavam são os das legislaturas antigas.
+
+O estrago disso não era "não achou o autor". Era pior: com a pessoa certa
+fora do catálogo, o rapidfuzz entregava o vizinho mais parecido e o programa
+aceitava como certeza alta. Medido nos lotes de 2009 e 2010, **25 indicações
+iam para o vereador errado**, caladas:
+
+| O papel foi assinado por | Era arquivado como | Casos |
+|---|---|---|
+| Sérgio Roberto de Andrade Rebouças (*Sérgio Andrade*) | **Serginho Muniz** | 15 |
+| Francisco Gildásio de Figueiredo (*Gildásio*) | **Chicão** | 10 |
+
+O segundo caso saía com **escore 100**. O motivo é instrutivo: Chicão tem o
+alias `"Francisco"`, e o `token_set_ratio` devolve 100 quando os tokens da
+chave são um *subconjunto* dos da consulta — ou seja, um apelido de uma
+palavra casa com nota máxima com qualquer nome que a contenha. O código já
+tratava esse risco no atalho por primeiro nome (que só aceita quando o nome é
+único na Câmara); o caminho do rapidfuzz pulava a conferência. Agora não pula
+mais: apelido próprio ("Binho", "Rhalessa") continua valendo, porque é de uma
+pessoa só; primeiro nome comum ("Francisco", "Eurico") vai para revisão.
+
+**De brinde, o glossário.** A API devolve `nome_parlamentar` (o nome político,
+que o SAPL usa) junto com `nome_completo` (o nome civil, que é como o vereador
+assina). Esse par é exatamente o mapa que vinha sendo montado à mão, uma
+confirmação por vez — 21 aliases entraram de uma vez na primeira sincronização.
+Os aliases que **você** confirmou nunca são removidos.
+
+### Vereador sem cadastro de Autor
+
+"Parlamentar" e "Autor" são tabelas diferentes no SAPL. Há vereador antigo que
+existe só na primeira — e sem registro de Autor ele **não aparece no select do
+formulário, com data nenhuma**. Não adianta procurar na tela.
+
+| Legislatura | Vereadores | Com cadastro de Autor |
+|---|---|---|
+| 13ª (2009-2012) | 12 | **1** |
+| 14ª (2013-2016) | 17 | 4 |
+| 15ª (2017-2020) | 18 | 7 |
+| 16ª (2021-2024) | 22 | 22 |
+| 17ª (2025-2028) | 23 | 23 |
+
+Esses entram no catálogo com id 0 e a marca `sem_cadastro_no_sapl`. Servem
+para o programa **reconhecer a assinatura e dizer o motivo certo**:
+
+```
+Katia Pires assinou, mas nao tem cadastro de Autor no SAPL
+[13a (2009-2012), 14a (2013-2016), 15a (2017-2020)] - cadastre o Autor no
+SAPL e rode scripts\sincronizar_autores.py
+```
+
+em vez de apontar um homônimo qualquer. Criar o Autor no SAPL é trabalho de
+tela, uma vez por vereador; depois é só rodar o script de novo. Enquanto isso
+não acontece, essas indicações ficam de lado — que é o certo, porque não há
+onde cadastrá-las.
+
+## Aviso de OCR estragado dentro da ementa
+
+A ementa **vazia** você vê na hora. A que sai com o tamanho certo, a estrutura
+certa e um `INbICACÁO` no meio passa batido — e vira registro oficial com lixo
+dentro. Desde 26/08/2026 o programa aponta esses casos, com o trecho suspeito
+junto, para a conferência ir direto ao ponto em vez de reler tudo:
+
+```
+472/2009
+  ! ementa: caractere que nao existe em portugues (~) - confira no PNG
+  ! ementa: digito no meio de palavra (Q1I, I10J, G1J) - o OCR trocou letra por numero
+  ! ementa: maiuscula e minuscula misturadas (GUga1) - o OCR trocou letra
+  ao Chefe do Executivo Municipal (...) e extensivo à Secretaria Municipai de
+  Trânsito e Transporte, a implantação de semáforo no cruzamento da Rua Sadi M
+```
+
+(Repare o `Municipai` no fim — é isso que o aviso faz você procurar.)
+
+São quatro regras, e todas foram **medidas sobre as 7.840 ementas reais** de
+2009 a 2020, não imaginadas:
+
+| Regra | Marca | Exemplos reais |
+|---|---|---|
+| caractere que não existe em português | 431 | `~` `•` `_` `ì` `ò` `ï` `►` |
+| maiúscula e minúscula misturadas | 56 | `INbICACÁO` `PAVtMENTAÇÃO` |
+| dígito no meio de palavra | 52 | `i7a` `M0P` `r1e` |
+| palavra sem vogal | 23 | `nncfnc` `mptndn` `Fxpr` |
+
+Total: **478 ementas (6,1%)**. As outras 7.362 passam limpas. Isso importa:
+aviso que grita à toa faz você parar de ler aviso, então cada regra foi
+apertada até só sobrar coisa de verdade.
+
+**O que de propósito NÃO vira aviso**, porque é escrita correta:
+
+- **aspas e travessão** — 2.224 e 1.673 ocorrências; é pontuação, não sujeira;
+- **`150w`, `70wts`** — potência de lâmpada; **`M68`, `R83`** — código de rota
+  (o dígito no fim é normal; só o dígito *no meio* é suspeito);
+- **`SMTT`, `CBMRN`, `PMRN`** — siglas de órgão sem vogal nenhuma;
+- **`UBSs`, `ACDs`, `EPIs`, `PROFa`** — plural e feminino de sigla.
+
+Uma quinta regra foi escrita, medida e **jogada fora**: "texto picado", que
+contava a proporção de pedaços de 1 a 2 letras. Marcava 16% das ementas, e o
+que ela pegava era português correto — *"os indicativos N° 061/2010 e N°
+103/2011 junto à Presidência da"* tem 67% de tokens curtos porque `os`, `e`,
+`à`, `da` e `N` são palavras de verdade. Não existe regra de tamanho de
+palavra que separe português de lixo.
+
+**Estes avisos seguram o envio automático**, como qualquer outro motivo — e é
+para segurar mesmo: ementa com `Municipai` dentro não pode virar registro
+oficial sozinha. O custo medido é de 0,5% a 14,3% das indicações por lote
+(6,1% no geral; 54 de 573 no lote de 2020). Some assim que você digitar a
+transcrição, igual aos outros motivos de ementa.
+
 ## Critério para uma indicação ir sozinha
 
 Tudo tem de valer:
 
 - ementa entre 40 e 900 caracteres, com confiança ≥ 0,6
+- ementa **sem marca de OCR estragado** (ver a seção acima)
 - autor resolvido por alias, rapidfuzz ≥ 88 ou primeiro nome único
 - número lido do papel (não deduzido) **e coerente com a sequência do lote**
 - bloco com 2 páginas ou mais

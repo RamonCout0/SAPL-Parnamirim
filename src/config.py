@@ -71,6 +71,42 @@ VERBOS_EMENTA = [
     "INDICO",
 ]
 
+# Verbos do modelo ANTIGO de indicacao (aparece de 2009 ate meados dos anos
+# 2010). Naquele papel a formula nao e "o vereador INDICA", e sim:
+#
+#   "Apresento a V.Exa., nos termos do Art. 148 do Regimento Interno, a
+#    presente Indicacao, SUGERINDO ao Senhor Prefeito <o pedido> por se
+#    tratar de medida de interesse publico."
+#
+# Como "sugerindo" nao estava em lista nenhuma, a ementa saia VAZIA e o
+# programa acusava "verbo ilegivel no OCR - transcrever pelo PNG" - um recado
+# errado, porque o OCR estava perfeito: quem nao conhecia a palavra era o
+# programa. Medido em 26/08/2026 no lote de 2010: 160 das 426 indicacoes
+# (38%) caiam assim, todas com o texto limpo e legivel no PDF.
+#
+# Esta lista e SEPARADA de VERBOS_EMENTA de proposito, e so e consultada
+# quando nenhum verbo da lista principal casa. Assim o comportamento dos
+# lotes de 2020 em diante - que ja estao conferidos e enviados - nao muda em
+# nada: um verbo novo no meio da lista principal poderia casar ANTES do verbo
+# certo e reescrever ementa que ja estava boa.
+VERBOS_EMENTA_ANTIGOS = [
+    # "... a presente Indicacao, SUGERINDO ao Senhor Prefeito <pedido>"
+    "SUGERINDO",
+    "SUGERE",
+    "SUGIRO",
+    # "... solicitar a Presidencia da Mesa Diretora, que seja INDICADO ao
+    #  Chefe do Executivo Municipal <pedido>". Particípio: "INDICADO" nao casa
+    #  em \bINDICA\b (nao ha fronteira de palavra antes do "DO"), entao a
+    #  lista principal passava direto por ele.
+    "INDICADOS",
+    "INDICADAS",
+    "INDICADO",
+    "INDICADA",
+    "SOLICITANDO",
+    "SOLICITA",
+    "SOLICITO",
+]
+
 # Linhas de rodape / cabecalho do papel timbrado que o OCR repete em toda pagina
 # e que nao fazem parte do conteudo da indicacao.
 RUIDO_LINHAS = [
