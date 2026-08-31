@@ -646,6 +646,69 @@ def cortar_ate_numero(itens: list[dict], alvo: int) -> list[dict]:
     return list(reversed(cortar_do_numero(de_tras, alvo)))
 
 
+def _posicao_do_numero(itens: list[dict], alvo: int) -> int | None:
+    """Onde a indicacao `alvo` esta na lista, ou None se ela nao esta."""
+    for pos, item in enumerate(itens):
+        if int(item.get("numero", 0)) == alvo:
+            return pos
+    return None
+
+
+def _fatia(itens: list[dict], de: int | None, ate: int | None) -> list[dict]:
+    """Os dois cortes aplicados na ordem em que foram pedidos."""
+    pedaco = itens
+    if de is not None:
+        pedaco = cortar_do_numero(pedaco, de)
+    if ate is not None:
+        pedaco = cortar_ate_numero(pedaco, ate)
+    return pedaco
+
+
+def entre_numeros(itens: list[dict], de: int | None,
+                  ate: int | None) -> list[dict]:
+    """O PEDACO da fila que vai da indicacao `de` ate a `ate`, as duas inclusive.
+
+    Existe porque "essas eu ja mandei" quase nunca quer dizer "as primeiras da
+    fila". antes_do_numero() so sabe tirar um pedaco INICIAL, e isso resolve
+    quem parou no meio de UM lote e volta amanha. Nao resolve quem mandou a mao
+    a faixa 1901-1945 e hoje esta trabalhando na 901-1000: aquelas 45 caem no
+    MEIO da lista, e nao existe numero nenhum que as tire sem levar junto
+    centenas que ainda faltam enviar. Sem uma faixa, a saida era conviver com
+    elas na fila para sempre - e uma fila que mostra o que ja foi cadastrado e
+    uma fila em que nao da para confiar na hora de mandar tudo de uma vez.
+
+    Quando os DOIS numeros estao na fila, a faixa e o trecho entre as duas
+    POSICOES - e mais nada. Nao se apoia no sentido do lote de proposito: a
+    fila nao e um lote so, e sim o que sobrou de varios. O indicacoes.json de
+    hoje desce de 1000 a 986 e termina numa 2472 solta; numa lista assim,
+    "de 995 ate 1000" resolvido por comparacao de numero devolvia 10 indicacoes
+    em vez de 6 - e cada uma a mais e uma indicacao marcada como cadastrada sem
+    nunca ter entrado no SAPL, que some da fila e ninguem procura de novo.
+
+    Se algum dos numeros nao estiver mais na fila - o caso comum depois de
+    marcar, que deixa buracos - cai nos cortes de sempre, que sabem achar o
+    vizinho mais proximo no sentido do lote.
+
+    `de` vazio quer dizer "desde a primeira da fila"; `ate` vazio, "ate a
+    ultima" - e assim isto tambem faz o servico do "ja enviei ate aqui".
+    """
+    if de is not None and ate is not None:
+        aqui = _posicao_do_numero(itens, de)
+        ali = _posicao_do_numero(itens, ate)
+        if aqui is not None and ali is not None:
+            # sorted() e o que aceita "da 1901 ate a 1945" e "da 1945 ate a
+            # 1901" como a MESMA faixa. As duas nomeiam os mesmos documentos;
+            # qual delas segue o sentido da lista depende do PDF - detalhe que
+            # ninguem tem obrigacao de saber de cor ao digitar.
+            comeco, fim = sorted((aqui, ali))
+            return itens[comeco:fim + 1]
+
+    faixa = _fatia(itens, de, ate)
+    if faixa or de is None or ate is None:
+        return faixa
+    return _fatia(itens, ate, de)
+
+
 # ---------------------------------------------------------------- impedimentos
 
 

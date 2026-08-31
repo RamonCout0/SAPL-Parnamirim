@@ -67,6 +67,7 @@ from .revisao import (
     exportar_paginas_png,
     importar_do_glossario,
     ler_correcoes,
+    ordenar_glossario,
 )
 from .textlayer import extrair_paginas
 
@@ -1025,6 +1026,12 @@ def _preparar_revisao(indicacoes: list[Indicacao], ids: dict) -> None:
             "CONFIRMAR": "sim" if ja.get("confirmado") else "",
         })
 
+    # Em ordem de indicacao, e nao na ordem em que os PDFs foram varridos: os
+    # dois arquivos daqui sao para LER, e a varredura entrega 2023 embaralhado
+    # (os arquivos entram por nome, e dentro de varios a numeracao desce). Vale
+    # para a tela de conferencia, que ordena por conta propria, e tambem para
+    # quem abre o REVISAO.md ou o CSV no Excel - esses nao teriam como ordenar.
+    linhas = ordenar_glossario(linhas)
     escrever_glossario(linhas, GLOSSARIO)
     escrever_revisao_md(linhas, REVISAO_DIR / "REVISAO.md")
     print(f"{len(pendentes)} indicacoes para revisar em {GLOSSARIO}")

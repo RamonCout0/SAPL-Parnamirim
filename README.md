@@ -151,16 +151,32 @@ individual"**. É uma resposta, não a ausência de uma: o programa só deixa
 passar sem autor quando você marca isso. Autor em branco continua segurando a
 indicação — é o que impede uma assinatura mal lida de virar cadastro sem autor.
 
+**A ordem é a do número, não a do escaneamento.** A extração varre os PDFs por
+nome de arquivo, e o nome não diz a numeração: o `2030_A_1901` entra antes do
+`1000_A_901` só porque tem um espaço onde o outro tem `_`. Dentro de vários
+deles a numeração ainda **desce**. Sem ordenar, a conferência de 2023 tinha
+**95 quebras de sequência em 1849 indicações** — abria na 1901, subia até a
+2030, caía na 985, descia até a 901, pulava para a 1001. Quem confere lê o
+papel e procura o número; saltar de centena em centena a cada tela obriga a
+reencontrar o lugar no maço toda vez. Agora a próxima tela é a próxima folha.
+
+As poucas cujo **número o OCR não leu** ficam juntas no começo (em 2023 são
+três: lidas como 2, 69 e 158). É onde elas são mais fáceis de resolver — e,
+corrigido o número, cada uma vai para o meio das vizinhas de verdade, sem a
+tela perder o seu lugar.
+
 Dois botões dessa tela existem para conferir o que vai de fato para o SAPL:
 
 - **Ver o PDF do SAPL** abre o arquivo fatiado de `output/pdfs/` — o mesmo que
   será anexado. As imagens ao lado mostram o conteúdo; só o PDF prova o que o
   SAPL vai receber.
-- **Esta é continuação da anterior — juntar ↑** é a saída para quando a máquina
-  partiu uma indicação em duas (uma folha de anexo lida como começo, um
-  cabeçalho destruído no meio). As páginas passam para a indicação de cima e
-  viram um PDF só. Fica gravado em `config/juncoes.json` e vale para sempre —
-  não precisa refazer a cada rodada. Vale a partir do processamento seguinte.
+- **Esta é continuação da folha de cima — juntar ↑** é a saída para quando a
+  máquina partiu uma indicação em duas (uma folha de anexo lida como começo, um
+  cabeçalho destruído no meio). "De cima" é **no escaneamento**, não a tela
+  anterior: a junção é gravada por *(arquivo, página)*, e a conferência vem por
+  ordem de número. As páginas passam para aquela indicação e viram um PDF só.
+  Fica gravado em `config/juncoes.json` e vale para sempre — não precisa
+  refazer a cada rodada. Vale a partir do processamento seguinte.
 - **Aqui começa outra indicação — separar ↓** é o contrário, para quando a
   máquina *grudou* duas indicações numa só. Você escolhe em que página a
   segunda começa (o número da página está escrito acima de cada imagem) e
@@ -213,14 +229,43 @@ A caixa **Fila de envio** manda nos dois botões, o manual e o automático.
   650 tira as 601–649. Enquanto você digita, a frase abaixo do campo diz
   exatamente o que vai acontecer (*"Vai da 350/2023 até a 301/2023 — 50
   indicação(ões), deixando 50 de fora"*).
-- **Já enviei até aqui** tira essas anteriores da fila **de vez**. É para as
-  que você cadastrou à mão, antes de o programa existir ou fora dele: ele não
-  tem como saber delas sozinho, e sem isso elas voltavam para a fila toda
-  sessão, o contador ficava errado e *todas* queria dizer "as 400 de novo".
-  Elas aparecem na tabela como **"marcada por você"** — diferente de
-  **"cadastrada"**, que é o que o programa fez e conferiu na tela do SAPL. Se
-  errar o número, o botão *Desfazer* aparece ao lado e devolve todas para a
-  fila.
+### Tirar da fila o que você já cadastrou à mão
+
+O programa só sabe das indicações que **ele** cadastrou. As que você mandou à
+mão — antes de ele existir, ou por fora dele — são invisíveis para ele: sem
+avisar, elas voltavam para a fila toda sessão, o contador ficava errado e
+*todas* queria dizer "as 400 de novo".
+
+A caixa **Já cadastrei essas à mão** resolve isso de duas maneiras, porque "já
+mandei essas" quase nunca quer dizer "as primeiras da fila":
+
+- **Por faixa** — *Tirar da fila da ▢ até a ▢*. É o caso da 1901–1945, que foi
+  cadastrada à mão enquanto o trabalho de hoje está na 901–1000: elas caem no
+  **meio** da lista, e não existe um número só que as alcance sem levar junto
+  centenas que ainda faltam enviar. Deixando o primeiro campo em branco, tira
+  tudo desde o começo da fila — que é o antigo *"Já enviei até aqui"*.
+  Escrever *da 1901 até a 1945* ou *da 1945 até a 1901* dá na mesma: são os
+  mesmos documentos, e o sentido do lote é detalhe do PDF.
+- **Por linha** — selecione na tabela (Ctrl e Shift pegam várias) e clique em
+  **Tirar da fila**. É para as avulsas, que faixa nenhuma pega: a 1476
+  cadastrada solta meses atrás, três números espalhados que voltaram do
+  cartório.
+
+Enquanto você digita, a frase abaixo dos campos diz exatamente quantas e quais
+vão sair — este botão marca dezenas de uma vez, e uma marcada por engano some
+da fila sem nunca ter entrado no SAPL.
+
+As tiradas assim aparecem na tabela como **"marcada por você"** — diferente de
+**"cadastrada"**, que é o que o programa fez e conferiu na tela do SAPL.
+
+**O caminho de volta:** *Desfazer* alcança a última marcação da sessão.
+**Devolver para a fila** (com as linhas selecionadas) funciona a qualquer
+momento, inclusive dias depois — sem ele, quem errasse um número e fechasse o
+programa ficava com a indicação marcada como cadastrada para sempre. Ele só
+devolve o que **você** declarou: o que o programa cadastrou e viu entrar no
+SAPL não volta, porque apagar esse registro não desfaz o cadastro — só faria o
+programa oferecer a indicação de novo e criar uma segunda matéria para o mesmo
+documento.
 
 ## A data de apresentação: onde ela está, e por que não dá para lê-la
 

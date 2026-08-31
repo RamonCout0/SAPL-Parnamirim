@@ -408,6 +408,60 @@ def linhas_do_glossario(caminho: Path) -> list[dict]:
         return list(csv.DictReader(f, delimiter=";"))
 
 
+def chave_de_ordem(linha: dict) -> tuple:
+    """Por onde a conferencia anda: numero da indicacao, crescente.
+
+    A ordem natural do glossario e a ordem em que os PDFs foram varridos, e ela
+    nao serve para conferir. Os arquivos entram por nome, e o nome nao diz a
+    numeracao: o "2030_A_1901" vem antes do "1000_A_901" so porque tem um
+    espaco onde o outro tem um "_". Dentro de varios deles a numeracao ainda
+    DESCE. Medido no lote de 2023: 95 quebras de sequencia em 1849 linhas - a
+    revisao abria na 1901, subia ate a 2030, caia na 985, descia ate a 901 e
+    pulava para a 1001.
+
+    Isso cobra caro de quem confere, porque quem confere le o PAPEL e procura o
+    numero: a cada tela, saltar de centena em centena obriga a reencontrar onde
+    se esta no maco. Em ordem, a proxima tela e sempre a proxima folha.
+
+    NUMERO_MANUAL na frente do lido: depois de voce corrigir um numero, o lugar
+    dele na fila e o do numero CERTO. Uma 1958 que o OCR leu como 158 fica
+    sozinha la em cima ate ser corrigida e, corrigida, vai para o meio das
+    vizinhas dela.
+
+    Arquivo e pagina desempatam, e sao o desempate certo: o mesmo numero lido
+    se repete no lote (seis vezes em 2023, todas por erro de leitura), e
+    (arquivo, pagina) e o que separa essas linhas no resto do programa inteiro
+    - inclusive em salvar_correcao() e em src/juncoes.py.
+    """
+    # str() em tudo antes de olhar: a MESMA linha passa por aqui em dois
+    # formatos. Vinda do CSV, todo campo e texto; vinda do pipeline, "numero" e
+    # "ano" ainda sao int, porque o csv e que os converte na hora de escrever.
+    # Sem isto, ordenar antes de gravar o glossario estourava em .strip().
+    def texto(chave: str) -> str:
+        valor = linha.get(chave)
+        return "" if valor is None else str(valor).strip()
+
+    bruto = texto("NUMERO_MANUAL") or texto("numero")
+    pagina = texto("paginas").split("-")[0].strip()
+    return (
+        texto("ano"),
+        int(bruto) if bruto.isdigit() else 0,
+        texto("arquivo"),
+        int(pagina) if pagina.isdigit() else 0,
+    )
+
+
+def ordenar_glossario(linhas: list[dict]) -> list[dict]:
+    """O glossario na ordem em que se confere - ver chave_de_ordem().
+
+    Devolve lista nova: a ordem do ARQUIVO nao muda por isto. Ela e a ordem em
+    que os blocos saem dos PDFs, e e a ela que salvar_correcao() reescreve por
+    cima - reordenar o arquivo a cada leitura faria o glossario se reescrever
+    inteiro toda vez que uma linha e salva.
+    """
+    return sorted(linhas, key=chave_de_ordem)
+
+
 def precisa_de(linha: dict) -> list[str]:
     """O que ESTA indicacao exige: "ementa", "autor" e/ou "confirmar".
 

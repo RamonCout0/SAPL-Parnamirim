@@ -22,9 +22,10 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from src.config import OUTPUT_DIR
-from src.enviados import DECLARADO, esquecer, ler_enviados, marcar_varias
+from src.enviados import (AUTOMATICO, DECLARADO, esquecer, ler_enviados,
+                          marcar_varias)
 from src.revisao import CORRECOES
-from src.sapl import antes_do_numero, caminho_do_pdf, cortar_do_numero
+from src.sapl import caminho_do_pdf, cortar_do_numero, entre_numeros
 
 from . import visual
 from .sapl_worker import SessaoSAPL
@@ -74,6 +75,7 @@ class TelaSAPL(ttk.Frame):
         self.caixa_velha = visual.aviso(self.corpo, "", "erro")
 
         self._montar_fila()
+        self._montar_ja_enviadas()
         self._montar_automatico()
 
         # O painel vai para BAIXO antes de a tabela ser criada. Assim, quando
@@ -112,6 +114,34 @@ class TelaSAPL(ttk.Frame):
         rolagem = ttk.Scrollbar(moldura, orient="vertical", command=self.tabela.yview)
         rolagem.pack(side="left", fill="y")
         self.tabela.configure(yscrollcommand=rolagem.set)
+
+        self._montar_acoes_da_tabela()
+
+    def _montar_acoes_da_tabela(self) -> None:
+        """Tirar e devolver clicando na linha - para o que faixa nenhuma pega.
+
+        A faixa resolve "da 1901 ate a 1945". Nao resolve as avulsas: a 1476 que
+        foi cadastrada solta meses atras, tres numeros espalhados que voltaram
+        do cartorio. Sem isto, uma unica indicacao ja enviada no meio do lote
+        obrigava a conviver com ela na fila para sempre.
+
+        "Devolver para a fila" e o caminho de volta que faltava: o Desfazer so
+        alcanca a ULTIMA marcacao desta sessao, entao quem errasse o numero e
+        fechasse o programa nao tinha mais como corrigir - a indicacao ficava
+        marcada como cadastrada sem nunca ter entrado no SAPL, que e o pior
+        estado possivel: some da fila e ninguem procura por ela de novo.
+        """
+        p = visual.px
+        linha = ttk.Frame(self.corpo)
+        linha.pack(fill="x", pady=(p(8), 0))
+        ttk.Label(linha, text="Selecionadas na tabela:",
+                  style="Ajuda.TLabel").pack(side="left")
+        ttk.Button(linha, text="Tirar da fila",
+                   command=self.tirar_selecionadas).pack(side="left", padx=p(8))
+        ttk.Button(linha, text="Devolver para a fila",
+                   command=self.devolver_selecionadas).pack(side="left")
+        ttk.Label(linha, style="Ajuda.TLabel",
+                  text="  (Ctrl e Shift selecionam várias)").pack(side="left")
 
     def _montar_placar(self, pai) -> None:
         """Os tres numeros que dizem onde o trabalho esta."""
@@ -168,13 +198,6 @@ class TelaSAPL(ttk.Frame):
         # que o corte pegou - sem ela a pessoa so descobre depois de clicar.
         self.var_inicio.trace_add("write", lambda *_: self._mostrar_faixa())
 
-        self.botao_ja_enviei = ttk.Button(
-            linha, text="Já enviei até aqui", command=self.marcar_ja_enviadas)
-        self.botao_ja_enviei.pack(side="left", padx=p(10))
-        # So aparece depois de uma marcacao, e some quando ela e desfeita.
-        self.botao_desfazer = ttk.Button(linha, text="Desfazer",
-                                         command=self.desfazer_marcacao)
-
         self.botao = ttk.Button(linha, text="Abrir o SAPL e preencher",
                                 command=self.comecar)
         self.botao.pack(side="right")
@@ -199,6 +222,97 @@ class TelaSAPL(ttk.Frame):
             text=f"Vai da {primeira} até a {ultima} — {len(itens)} indicação(ões)"
                  + (f", deixando {fora} de fora." if fora else ".")
                  + "  Vale para os dois botões, o manual e o automático.",
+            foreground=visual.CINZA_TEXTO)
+
+    def _montar_ja_enviadas(self) -> None:
+        """Tirar da fila o que voce ja cadastrou a mao - em qualquer lugar dela.
+
+        O botao antigo se chamava "Já enviei até aqui" e tirava tudo que vinha
+        ANTES de um numero. Isso serve para quem parou no meio de um lote e
+        volta no dia seguinte, e so para isso. Quem ja mandou a mao a faixa
+        1901-1945 e hoje trabalha na 901-1000 nao tinha o que digitar: as 45 ja
+        cadastradas caem no MEIO da lista, e nao existe numero que as tire sem
+        levar junto centenas que ainda faltam.
+
+        Por isso agora sao dois numeros, de e ate. Deixar o "de" em branco
+        recupera exatamente o comportamento antigo (do comeco da fila ate o
+        numero) - o botao velho virou o caso facil deste, em vez de sumir.
+        """
+        p = visual.px
+        caixa = ttk.LabelFrame(self.corpo, text=" Já cadastrei essas à mão ",
+                               padding=p(12))
+        caixa.pack(fill="x", pady=(p(10), 0))
+
+        linha = ttk.Frame(caixa)
+        linha.pack(fill="x")
+        ttk.Label(linha, text="Tirar da fila da",
+                  font=visual.FONTE_BOTAO).pack(side="left")
+        self.var_marcar_de = tk.StringVar()
+        tk.Entry(linha, textvariable=self.var_marcar_de, width=7,
+                 font=visual.FONTE_GRANDE,
+                 justify="center").pack(side="left", padx=p(8))
+        ttk.Label(linha, text="até a",
+                  font=visual.FONTE_BOTAO).pack(side="left")
+        self.var_marcar_ate = tk.StringVar()
+        tk.Entry(linha, textvariable=self.var_marcar_ate, width=7,
+                 font=visual.FONTE_GRANDE,
+                 justify="center").pack(side="left", padx=p(8))
+        for var in (self.var_marcar_de, self.var_marcar_ate):
+            var.trace_add("write", lambda *_: self._mostrar_previa())
+
+        self.botao_ja_enviei = ttk.Button(
+            linha, text="Tirar da fila", command=self.marcar_ja_enviadas)
+        self.botao_ja_enviei.pack(side="left", padx=p(10))
+        # So aparece depois de uma marcacao, e some quando ela e desfeita.
+        self.botao_desfazer = ttk.Button(linha, text="Desfazer",
+                                         command=self.desfazer_marcacao)
+
+        self.rotulo_previa = visual.fluido(ttk.Label(
+            caixa, style="Ajuda.TLabel", justify="left", text=""), margem=p(40))
+        self.rotulo_previa.pack(anchor="w", fill="x", pady=(p(8), 0))
+
+    def _faixa_marcada(self) -> list[dict]:
+        """As indicacoes da fila que os dois campos nomeiam. Vazio se nao dao par."""
+        de = self.var_marcar_de.get().strip()
+        ate = self.var_marcar_ate.get().strip()
+        if not (de or ate):
+            return []
+        return entre_numeros(
+            self.na_fila(),
+            int(de) if de.isdigit() else None,
+            int(ate) if ate.isdigit() else None,
+        )
+
+    def _mostrar_previa(self) -> None:
+        """Escreve, enquanto se digita, quais indicacoes o botao vai tirar.
+
+        Nao e enfeite: este botao marca dezenas de indicacoes como cadastradas
+        de uma vez, e uma marcada por engano some da fila sem nunca ter entrado
+        no SAPL. Ver a faixa escrita ANTES de clicar e o que separa "tirei as
+        45 que mandei" de "tirei 300 sem perceber".
+        """
+        de = self.var_marcar_de.get().strip()
+        ate = self.var_marcar_ate.get().strip()
+        if not (de or ate):
+            self.rotulo_previa.configure(
+                text="Digite a primeira e a última que você já cadastrou no "
+                     "SAPL por fora do programa — elas saem da fila e param de "
+                     "aparecer para envio. Deixando o primeiro campo em branco, "
+                     "tira tudo desde o começo da fila.",
+                foreground=visual.CINZA_TEXTO)
+            return
+        itens = self._faixa_marcada()
+        if not itens:
+            self.rotulo_previa.configure(
+                text="Nenhuma indicação da fila nessa faixa — confira os "
+                     "números na tabela abaixo.",
+                foreground=visual.VERMELHO)
+            return
+        primeira = f"{itens[0]['numero']}/{itens[0]['ano']}"
+        ultima = f"{itens[-1]['numero']}/{itens[-1]['ano']}"
+        self.rotulo_previa.configure(
+            text=f"Vai tirar da fila {len(itens)} indicação(ões), da {primeira} "
+                 f"até a {ultima}, marcadas como já cadastradas por você.",
             foreground=visual.CINZA_TEXTO)
 
     def _montar_automatico(self) -> None:
@@ -312,12 +426,21 @@ class TelaSAPL(ttk.Frame):
             messagebox.showerror("Registro de envios danificado", str(e))
 
         self.tabela.delete(*self.tabela.get_children())
-        for item in self.prontas:
-            envio = self.enviadas.get(f"{item['numero']}/{item['ano']}")
+        for posicao, item in enumerate(self.prontas):
+            identificador = f"{item['numero']}/{item['ano']}"
+            envio = self.enviadas.get(identificador)
             self.tabela.insert(
                 "", "end",
+                # A linha PASSA A SE CHAMAR "1901/2023" na tabela. E o que
+                # permite ir da linha clicada de volta a indicacao sem manter
+                # um segundo indice em paralelo, que sairia do lugar a cada
+                # recarga. A posicao entra como desempate porque um lote com a
+                # mesma indicacao repetida faria a segunda insercao estourar -
+                # dado errado nao pode virar tela que nao abre.
+                iid=identificador if not self.tabela.exists(identificador)
+                else f"{identificador}#{posicao}",
                 tags=("enviada",) if envio else ("fila",),
-                values=(f"{item['numero']}/{item['ano']}",
+                values=(identificador,
                         item.get("data_apresentacao") or "— não lida —",
                         item.get("autor_nome_sapl") or "?",
                         (item.get("ementa") or "")[:150],
@@ -335,6 +458,7 @@ class TelaSAPL(ttk.Frame):
         self.botao_ja_enviei.state(estado)
         self._conferir_atualidade()
         self._mostrar_faixa()
+        self._mostrar_previa()
 
     @staticmethod
     def _situacao(envio: dict | None) -> str:
@@ -420,7 +544,7 @@ class TelaSAPL(ttk.Frame):
 
     # ---------------------------------------------------------------- acoes
     def marcar_ja_enviadas(self) -> None:
-        """"Já enviei até aqui": tira da fila tudo que vem ANTES do número.
+        """Tira da fila a FAIXA que voce ja cadastrou a mao.
 
         O problema que isto resolve: o programa so sabe das indicacoes que ELE
         cadastrou. Todas as que voce mandou a mao - meses de trabalho - sao
@@ -429,46 +553,73 @@ class TelaSAPL(ttk.Frame):
         voltava inteira, o placar contava errado e "todas" queria dizer "as 400
         de novo".
 
+        Antes so dava para tirar o COMECO da fila, e por isso a faixa 1901-1945
+        - cadastrada a mao no meio do acervo, com a 901-1000 sendo trabalhada
+        hoje - nao tinha como sair: qualquer numero que a alcancasse levava
+        junto centenas que ainda faltam enviar.
+
         Marcadas aqui, elas saem da fila para sempre - e ficam gravadas como
         "declarado", nao como "cadastrado pelo programa", porque ninguem viu
         isso acontecer: quem afirma e voce.
         """
-        inicio = self.var_inicio.get().strip()
-        if not inicio.isdigit():
+        de = self.var_marcar_de.get().strip()
+        ate = self.var_marcar_ate.get().strip()
+        if not (de.isdigit() or ate.isdigit()):
             messagebox.showinfo(
-                "Digite o número primeiro",
-                "Escreva em 'Começar do número' a indicação em que você parou. "
-                "Tudo que vier antes dela na fila sai da lista.")
+                "Digite os números primeiro",
+                "Escreva a primeira e a última indicação que você já cadastrou "
+                "no SAPL por fora do programa.\n\nDeixando o primeiro campo em "
+                "branco, tira tudo desde o começo da fila até o número que "
+                "você escrever no segundo.")
             return
 
-        fila = self.na_fila()
-        if not cortar_do_numero(fila, int(inicio)):
+        faixa = self._faixa_marcada()
+        if not faixa:
             messagebox.showinfo(
-                "Número não encontrado",
-                f"Não achei a indicação {inicio} na fila. Confira o número na "
-                "tabela abaixo.")
+                "Faixa não encontrada",
+                f"Nenhuma indicação da fila entre {de or 'o começo'} e "
+                f"{ate or 'o fim'}. Confira os números na tabela abaixo — pode "
+                "ser que essas já tenham saído da fila.")
             return
 
-        anteriores = antes_do_numero(fila, int(inicio))
-        if not anteriores:
-            messagebox.showinfo(
-                "Nada antes dela",
-                f"A {inicio} já é a primeira da fila — não há o que tirar.")
-            return
+        self._marcar(faixa, "Marcar como já enviadas")
 
-        primeira = f"{anteriores[0]['numero']}/{anteriores[0]['ano']}"
-        ultima = f"{anteriores[-1]['numero']}/{anteriores[-1]['ano']}"
+    def tirar_selecionadas(self) -> None:
+        """Tira da fila as linhas marcadas na tabela - as avulsas."""
+        itens = [i for i in self._selecao_da_tabela()
+                 if f"{i['numero']}/{i['ano']}" not in self.enviadas]
+        if not itens:
+            messagebox.showinfo(
+                "Selecione na tabela",
+                "Clique na tabela abaixo nas indicações que você já cadastrou "
+                "à mão (segure Ctrl para escolher várias) e clique aqui.\n\n"
+                "As que já estão fora da fila não contam.")
+            return
+        self._marcar(itens, "Tirar da fila as selecionadas")
+
+    def _marcar(self, itens: list[dict], titulo: str) -> None:
+        """A gravacao em si - uma so, para a faixa e para a selecao.
+
+        As duas terminam no mesmo lugar de proposito: sao duas maneiras de
+        apontar as mesmas indicacoes, e uma segunda copia da confirmacao e da
+        gravacao seria a chance de as duas divergirem no dia em que uma for
+        corrigida.
+        """
+        primeira = f"{itens[0]['numero']}/{itens[0]['ano']}"
+        ultima = f"{itens[-1]['numero']}/{itens[-1]['ano']}"
+        quais = (f"a indicação {primeira}" if len(itens) == 1
+                 else f"{len(itens)} indicação(ões), da {primeira} até a {ultima}")
         if not messagebox.askyesno(
-            "Marcar como já enviadas",
-            f"Vou tirar da fila {len(anteriores)} indicação(ões), da {primeira} "
-            f"até a {ultima}, por você já ter cadastrado essas no SAPL.\n\n"
-            "Elas param de aparecer na fila e o programa não vai mais oferecer "
-            "essas para envio.\n\nSe errar o número, dá para desfazer: o botão "
-            "'Desfazer' aparece logo depois.\n\nPode marcar?",
+            titulo,
+            f"Vou tirar da fila {quais}, por você já ter cadastrado essas no "
+            "SAPL.\n\nElas param de aparecer na fila e o programa não vai mais "
+            "oferecer essas para envio.\n\nSe errar, dá para desfazer: o botão "
+            "'Desfazer' aparece logo depois, e 'Devolver para a fila' funciona "
+            "a qualquer momento.\n\nPode marcar?",
         ):
             return
 
-        identificadores = [f"{i['numero']}/{i['ano']}" for i in anteriores]
+        identificadores = [f"{i['numero']}/{i['ano']}" for i in itens]
         try:
             marcar_varias(identificadores, origem=DECLARADO)
         except (ValueError, OSError) as e:
@@ -479,6 +630,73 @@ class TelaSAPL(ttk.Frame):
         self.botao_desfazer.pack(side="left", padx=visual.px(10))
         self.recarregar()
         self.app.atualizar_abas()
+
+    def devolver_selecionadas(self) -> None:
+        """Devolve para a fila o que foi tirado por engano - a qualquer hora.
+
+        So devolve o que VOCE declarou. O que o programa cadastrou e confirmou
+        na tela do SAPL fica: aquilo e registro publico consumado, e apaga-lo
+        daqui nao desfaz o cadastro - so faz o programa oferecer a indicacao de
+        novo e criar a segunda materia para o mesmo documento.
+        """
+        itens = self._selecao_da_tabela()
+        declaradas, cadastradas = [], []
+        for item in itens:
+            identificador = f"{item['numero']}/{item['ano']}"
+            envio = self.enviadas.get(identificador)
+            if not envio:
+                continue
+            alvo = (cadastradas if envio.get("origem") == AUTOMATICO
+                    else declaradas)
+            alvo.append(identificador)
+
+        if not declaradas:
+            messagebox.showinfo(
+                "Nada para devolver",
+                "Selecione na tabela as indicações que saíram da fila por "
+                "engano.\n\n"
+                + ("As que você escolheu foram cadastradas pelo próprio "
+                   "programa, que conferiu na tela do SAPL que a matéria "
+                   "entrou. Essas não voltam para a fila: mandá-las de novo "
+                   "criaria uma segunda matéria para o mesmo documento."
+                   if cadastradas else
+                   "As que você escolheu já estão na fila."))
+            return
+
+        aviso = ""
+        if cadastradas:
+            aviso = (f"\n\n{len(cadastradas)} das selecionadas foram "
+                     "cadastradas pelo próprio programa e vão ficar de fora — "
+                     "essas já são registro no SAPL.")
+        if not messagebox.askyesno(
+            "Devolver para a fila",
+            f"Vou devolver {len(declaradas)} indicação(ões) para a fila. Elas "
+            "voltam a aparecer para envio." + aviso + "\n\nPode devolver?",
+        ):
+            return
+
+        quantos = esquecer(declaradas)
+        self._ultimas_marcadas = [i for i in self._ultimas_marcadas
+                                  if i not in declaradas]
+        if not self._ultimas_marcadas:
+            self.botao_desfazer.pack_forget()
+        self.recarregar()
+        self.app.atualizar_abas()
+        messagebox.showinfo("Devolvidas",
+                            f"{quantos} indicação(ões) voltaram para a fila.")
+
+    def _selecao_da_tabela(self) -> list[dict]:
+        """As indicacoes das linhas marcadas, na ordem em que estao na lista.
+
+        A ordem vem de self.prontas, nao da ordem em que se clicou: e ela que a
+        confirmacao usa para dizer "da 1901 ate a 1945", e clicar de baixo para
+        cima nao pode inverter a frase.
+        """
+        escolhidas = set(self.tabela.selection())
+        return [item for item in self.prontas
+                if f"{item['numero']}/{item['ano']}" in escolhidas
+                or any(iid.startswith(f"{item['numero']}/{item['ano']}#")
+                       for iid in escolhidas)]
 
     def desfazer_marcacao(self) -> None:
         """Devolve para a fila o que a ultima marcacao tirou.

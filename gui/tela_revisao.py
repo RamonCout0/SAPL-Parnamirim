@@ -21,6 +21,7 @@ from src.revisao import (
     falta_em,
     ja_revisada,
     linhas_do_glossario,
+    ordenar_glossario,
     precisa_de,
     salvar_correcao,
 )
@@ -235,15 +236,22 @@ class TelaRevisao(ttk.Frame):
         # A saida para quando a maquina partiu uma indicacao em duas: aqui voce
         # olha a imagem, ve que este bloco e a continuacao do de cima, e manda
         # juntar. Ver src/juncoes.py.
+        #
+        # "no escaneamento" nao e detalhe: a juncao e gravada por (arquivo,
+        # pagina), sempre foi, mas a tela agora anda em ordem NUMERICA e nao na
+        # ordem das folhas. Dizer so "a anterior" mandaria olhar a tela de tras
+        # - que pode ser outra indicacao, de outro PDF.
         self.botao_juntar = ttk.Button(
-            caixa, text="Esta é continuação da anterior — juntar ↑",
+            caixa, text="Esta é continuação da folha de cima — juntar ↑",
             command=self.juntar_com_anterior)
         self.botao_juntar.pack(anchor="w", fill="x", pady=(visual.px(10), 0))
         self.ajuda_juntar = visual.fluido(ttk.Label(
             caixa, style="Ajuda.TLabel", justify="left",
             text="Use quando este bloco não for uma indicação nova e sim o "
-                 "resto da anterior (uma folha de anexo, um verso solto). As "
-                 "páginas passam para a indicação de cima e viram um PDF só."))
+                 "resto da que vem logo antes dele NO ESCANEAMENTO (uma folha "
+                 "de anexo, um verso solto) — não a da tela anterior, que aqui "
+                 "vem por ordem de número. As páginas passam para aquela "
+                 "indicação e viram um PDF só."))
         self.ajuda_juntar.pack(anchor="w", fill="x", pady=(visual.px(2), 0))
 
         # O erro oposto, e o mais grave: a maquina NAO viu que uma indicacao
@@ -270,7 +278,7 @@ class TelaRevisao(ttk.Frame):
     # ----------------------------------------------------------------- dados
     def recarregar(self) -> None:
         """Rele o glossario do disco. Chamado depois de cada extracao."""
-        self.linhas = linhas_do_glossario(GLOSSARIO)
+        self.linhas = ordenar_glossario(linhas_do_glossario(GLOSSARIO))
         ids = carregar_ids()
         self._autores = sorted(
             (a for a in ids["autores"] if a.get("parlamentar")),
@@ -280,6 +288,19 @@ class TelaRevisao(ttk.Frame):
             values=[SELECIONE, SEM_AUTOR] + [a["nome"] for a in self._autores])
         self.indice = self._primeira_pendente()
         self.mostrar()
+
+    @staticmethod
+    def _identidade(linha: dict) -> tuple:
+        """Quem e ESTA linha, onde quer que ela esteja na lista.
+
+        Numero LIDO, e nao o corrigido: o lido nunca muda, e e justamente ele
+        que reencontra a linha depois de voce corrigir o numero. As paginas
+        entram porque o mesmo numero lido se repete no lote - e o mesmo par que
+        salvar_correcao() usa para nao gravar a correcao na linha errada.
+        """
+        return ((linha.get("numero") or "").strip(),
+                (linha.get("ano") or "").strip(),
+                (linha.get("paginas") or "").strip())
 
     def _primeira_pendente(self) -> int:
         for i, linha in enumerate(self.linhas):
@@ -770,7 +791,18 @@ class TelaRevisao(ttk.Frame):
             sem_autor=sem_autor,
             confirmado=self.var_conferi.get(),
         )
-        self.linhas = linhas_do_glossario(GLOSSARIO)
+        # Reencontrar a linha por QUEM ELA E, e nao pela posicao que ela
+        # ocupava. Em ordem numerica a posicao nao e estavel: corrigir uma 1958
+        # que o OCR leu como 158 leva a linha da segunda tela para o meio da
+        # lista, e continuar confiando no indice antigo faria a tela seguinte
+        # falar de uma indicacao que voce nunca abriu - inclusive cobrando "o
+        # que falta preencher" nela.
+        alvo = self._identidade(self.atual) if self.atual else None
+        self.linhas = ordenar_glossario(linhas_do_glossario(GLOSSARIO))
+        if alvo is not None:
+            self.indice = next(
+                (i for i, l in enumerate(self.linhas)
+                 if self._identidade(l) == alvo), self.indice)
         self.app.atualizar_abas()
 
         # Salvou e ainda falta coisa NESTA indicacao? Entao fica nela e diz o
