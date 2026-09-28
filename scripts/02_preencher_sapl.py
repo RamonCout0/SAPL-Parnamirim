@@ -58,6 +58,7 @@ from src.config import OUTPUT_DIR
 # grafica - as duas telas preenchem igual porque e o mesmo codigo.
 from src.sapl import (
     PERFIL,
+    PREFS_FIREFOX,
     achar,
     carregar_form,
     cortar_ate_numero,
@@ -185,6 +186,7 @@ def main() -> int:
             user_data_dir=str(PERFIL),
             headless=False,
             viewport={"width": 1500, "height": 950},
+            firefox_user_prefs=PREFS_FIREFOX,
         )
         pagina = nav.pages[0] if nav.pages else nav.new_page()
 

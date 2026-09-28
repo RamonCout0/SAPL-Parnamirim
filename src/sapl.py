@@ -32,6 +32,17 @@ from .revisao import divergencias_da_correcao
 # precisar logar toda vez. Esta no .gitignore - e credencial.
 PERFIL = RAIZ / ".perfil_navegador"
 
+# Preferencias do Firefox passadas em toda abertura do perfil acima.
+#
+# browser.zoom.siteSpecific=False faz o Firefox IGNORAR o zoom guardado por
+# site. Sem isto, um Ctrl+- dado uma vez no SAPL (para ver o formulario
+# inteiro) ficava salvo no perfil - no PC do Ramon era 70% - e o Playwright
+# continuava calculando o ponto do clique como se fosse 100%. O clique em
+# Salvar caia no vazio, sem erro nenhum, e o automatico ficava esperando a
+# pessoa salvar a mao. Como o zoom mora no perfil, so a maquina que o tinha
+# falhava.
+PREFS_FIREFOX = {"browser.zoom.siteSpecific": False}
+
 
 def carregar_form() -> dict:
     import json
