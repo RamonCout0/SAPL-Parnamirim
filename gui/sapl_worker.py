@@ -110,6 +110,7 @@ class SessaoSAPL(threading.Thread):
                 user_data_dir=str(sapl.PERFIL),
                 headless=False,
                 viewport={"width": 1500, "height": 950},
+                firefox_user_prefs=sapl.PREFS_FIREFOX,
             )
             try:
                 pagina = nav.pages[0] if nav.pages else nav.new_page()
